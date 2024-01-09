@@ -1,0 +1,6 @@
+__pycache__
+.venv
+notebooks
+dist
+coverage
+docs/build

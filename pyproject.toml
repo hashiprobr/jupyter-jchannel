@@ -1,0 +1,31 @@
+[tool.poetry]
+name = "jupyter-jchannel"
+version = "0.0.1"
+description = ""
+authors = [
+  "Marcelo Hashimoto <marcelo.hashimoto@gmail.com>"
+]
+readme = "README.md"
+repository = "https://github.com/hashiprobr/jupyter-jchannel"
+packages = [
+  { include = "jchannel" }
+]
+
+[tool.poetry.dependencies]
+python = "^3.9"
+websockets = "^12.0"
+
+[tool.poetry.group.dev.dependencies]
+jupyterlab = "^4.0.10"
+autopep8 = "^2.0.4"
+coverage = "^7.4.0"
+sphinx = "^7.2.6"
+
+[tool.poetry.scripts]
+notebooks = 'scripts:notebooks'
+tests = 'scripts:tests'
+docs = 'scripts:docs'
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
