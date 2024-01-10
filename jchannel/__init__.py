@@ -1,5 +1,6 @@
 class Init(object):
-    pass
+    def __init__(self):
+        self.value = True
 
 
 init = Init()

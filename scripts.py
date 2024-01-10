@@ -1,3 +1,4 @@
+import os
 import subprocess
 
 from argparse import ArgumentParser
@@ -12,10 +13,10 @@ def tests():
     parser.add_argument('--coverage', action="store_true")
     args = parser.parse_args()
     if args.coverage:
-        subprocess.run(['coverage', 'run', '--data-file=coverage/.coverage', '-m', 'unittest', 'discover', 'tests'])
-        subprocess.run(['coverage', 'lcov', '--data-file=coverage/.coverage', '-o', 'coverage/lcov.info'])
+        subprocess.run(['pytest', '--cov=jchannel', '--cov-report=html:coverage/html-report', '--cov-report=lcov:coverage/lcov.info'])
+        os.remove('.coverage')
     else:
-        subprocess.run(['python', '-m', 'unittest', 'discover', 'tests'])
+        subprocess.run(['pytest'])
 
 
 def docs():
