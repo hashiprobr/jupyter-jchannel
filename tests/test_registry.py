@@ -8,47 +8,47 @@ pytestmark = pytest.mark.asyncio(scope='module')
 
 
 @pytest.fixture
-def registry():
+def r():
     return Registry()
 
 
-async def test_stores_and_retrieves_two_serial(registry):
+async def test_stores_and_retrieves_twice(r):
     loop = asyncio.get_running_loop()
-    future0 = loop.create_future()
-    key0 = registry.store(future0)
-    assert registry.retrieve(key0) is future0
+    future_0 = loop.create_future()
+    key_0 = r.store(future_0)
+    assert r.retrieve(key_0) is future_0
     with pytest.raises(KeyError):
-        registry.retrieve(key0)
-    future1 = loop.create_future()
-    key1 = registry.store(future1)
-    assert registry.retrieve(key1) is future1
+        r.retrieve(key_0)
+    future_1 = loop.create_future()
+    key_1 = r.store(future_1)
+    assert r.retrieve(key_1) is future_1
     with pytest.raises(KeyError):
-        registry.retrieve(key1)
+        r.retrieve(key_1)
 
 
-async def test_stores_and_retrieves_two_parallel(registry):
+async def test_stores_and_retrieves_queue(r):
     loop = asyncio.get_running_loop()
-    future0 = loop.create_future()
-    key0 = registry.store(future0)
-    future1 = loop.create_future()
-    key1 = registry.store(future1)
-    assert registry.retrieve(key0) is future0
+    future_0 = loop.create_future()
+    key_0 = r.store(future_0)
+    future_1 = loop.create_future()
+    key_1 = r.store(future_1)
+    assert r.retrieve(key_0) is future_0
     with pytest.raises(KeyError):
-        registry.retrieve(key0)
-    assert registry.retrieve(key1) is future1
+        r.retrieve(key_0)
+    assert r.retrieve(key_1) is future_1
     with pytest.raises(KeyError):
-        registry.retrieve(key1)
+        r.retrieve(key_1)
 
 
-async def test_stores_and_retrieves_two_reversed(registry):
+async def test_stores_and_retrieves_stack(r):
     loop = asyncio.get_running_loop()
-    future0 = loop.create_future()
-    key0 = registry.store(future0)
-    future1 = loop.create_future()
-    key1 = registry.store(future1)
-    assert registry.retrieve(key1) is future1
+    future_0 = loop.create_future()
+    key_0 = r.store(future_0)
+    future_1 = loop.create_future()
+    key_1 = r.store(future_1)
+    assert r.retrieve(key_1) is future_1
     with pytest.raises(KeyError):
-        registry.retrieve(key1)
-    assert registry.retrieve(key0) is future0
+        r.retrieve(key_1)
+    assert r.retrieve(key_0) is future_0
     with pytest.raises(KeyError):
-        registry.retrieve(key0)
+        r.retrieve(key_0)

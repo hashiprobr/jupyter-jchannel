@@ -10,13 +10,23 @@ def notebooks():
 
 def tests():
     parser = ArgumentParser()
-    parser.add_argument('--coverage', action="store_true")
-    args = parser.parse_args()
-    if args.coverage:
-        subprocess.run(['pytest', '--cov=jchannel', '--cov-report=html:coverage/html-report', '--cov-report=lcov:coverage/lcov.info'])
+    parser.add_argument('--path', action='store')
+    parser.add_argument('--coverage', action='store_true')
+
+    input = parser.parse_args()
+
+    output = ['pytest']
+
+    if input.path is not None:
+        output.append(input.path)
+
+    if input.coverage:
+        output.extend(['--cov-branch', '--cov=jchannel', '--cov-report=html:coverage/html-report', '--cov-report=lcov:coverage/lcov.info'])
+
+    subprocess.run(output)
+
+    if input.coverage:
         os.remove('.coverage')
-    else:
-        subprocess.run(['pytest'])
 
 
 def docs():
