@@ -11,7 +11,7 @@ from jchannel.frontend import default
 class DebugScenario(Enum):
     STOP_BETWEEN_STOP_AND_CLEAN = auto()
     STOP_BETWEEN_DISCONNECT_AND_RESTART = auto()
-    RESTART_BETWEEN_STOP_AND_DISCONNECT = auto()
+    RESTART_BETWEEN_DISCONNECT_AND_STOP = auto()
 
 
 class DebugEvent(asyncio.Event):
@@ -170,7 +170,7 @@ class Server:
             restarting = await self.disconnection
 
             await self.sentinel.set_and_yield(DebugScenario.STOP_BETWEEN_DISCONNECT_AND_RESTART)
-            await self.sentinel.wait_on_count(DebugScenario.RESTART_BETWEEN_STOP_AND_DISCONNECT, 1)
+            await self.sentinel.wait_on_count(DebugScenario.RESTART_BETWEEN_DISCONNECT_AND_STOP, 1)
 
             if restarting:
                 loop = asyncio.get_running_loop()
@@ -187,6 +187,14 @@ class Server:
 
         self.cleaned.set()
         self.cleaned = None
+
+    async def _reject(self, request):
+        socket = web.WebSocketResponse()
+        await socket.prepare(request)
+
+        await socket.close()
+
+        return socket
 
     async def _send(self, data_type, **kwargs):
         if self.connection is None:
@@ -207,37 +215,42 @@ class Server:
             await app.socket.close()
 
     async def _handle_socket(self, request):
-        if self.connection is None or self.connection.done():
-            socket = web.WebSocketResponse()
-            await socket.prepare(request)
+        if self.connection is None:
+            return self._reject()
 
-            await socket.close()
-        else:
-            socket = web.WebSocketResponse(heartbeat=self.heartbeat)
-            await socket.prepare(request)
+        if self.connection.done():
+            socket = self.connection.result()
 
-            self.connection.set_result(socket)
+            if socket is not None:
+                logging.error('Received socket request while already connected')
 
-            request.app.socket = socket
+            return self._reject()
 
-            async for message in socket:
-                if message.type == WSMsgType.TEXT:
-                    kwargs = json.loads(message.data)
-                    data_type = kwargs.pop('type')
+        socket = web.WebSocketResponse(heartbeat=self.heartbeat)
+        await socket.prepare(request)
 
-                    match data_type:
-                        case _:
-                            logging.error(f'Unexpected data type: {data_type}')
-                else:
-                    logging.error(f'Unexpected message type: {message.type}')
+        self.connection.set_result(socket)
 
-            request.app.socket = None
+        request.app.socket = socket
 
-            if self.disconnection is not None:
-                if not self.disconnection.done():
-                    self.disconnection.set_result(True)
+        async for message in socket:
+            if message.type == WSMsgType.TEXT:
+                kwargs = json.loads(message.data)
+                data_type = kwargs.pop('type')
 
-            await self.sentinel.set_and_yield(DebugScenario.RESTART_BETWEEN_STOP_AND_DISCONNECT)
+                match data_type:
+                    case _:
+                        logging.error(f'Received unexpected data type {data_type}')
+            else:
+                logging.error(f'Received unexpected message type {message.type}')
+
+        request.app.socket = None
+
+        if self.disconnection is not None:
+            if not self.disconnection.done():
+                self.disconnection.set_result(True)
+
+        await self.sentinel.set_and_yield(DebugScenario.RESTART_BETWEEN_DISCONNECT_AND_STOP)
 
         return socket
 

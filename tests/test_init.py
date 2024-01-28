@@ -217,17 +217,7 @@ async def test_starts_and_stops_twice(s, client):
     await client.disconnection()
 
 
-async def test_disconnects_and_stops(s, client):
-    await start_with_sentinel(s, DebugScenario.STOP_BETWEEN_DISCONNECT_AND_RESTART)
-    await client.connection()
-    await s._send('disconnect')
-    with pytest.raises(RuntimeError):
-        await s.stop()
-    await s.stop()
-    await client.disconnection()
-
-
-async def test_stops_and_disconnects_2(s, client):
+async def test_stops_and_does_not_restart(s, client):
     await s.start()
     await client.connection()
     await s._send('disconnect')
@@ -235,9 +225,19 @@ async def test_stops_and_disconnects_2(s, client):
     await client.disconnection()
 
 
-async def test_stops_and_disconnects(s, client):
-    await start_with_sentinel(s, DebugScenario.RESTART_BETWEEN_STOP_AND_DISCONNECT)
+async def test_restarts_and_stops(s, client):
+    await start_with_sentinel(s, DebugScenario.RESTART_BETWEEN_DISCONNECT_AND_STOP)
     await client.connection()
     await s._send('disconnect')
+    await s.stop()
+    await client.disconnection()
+
+
+async def test_restarts_and_does_not_stop(s, client):
+    await start_with_sentinel(s, DebugScenario.STOP_BETWEEN_DISCONNECT_AND_RESTART)
+    await client.connection()
+    await s._send('disconnect')
+    with pytest.raises(RuntimeError):
+        await s.stop()
     await s.stop()
     await client.disconnection()
