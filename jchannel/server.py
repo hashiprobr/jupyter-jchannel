@@ -11,7 +11,6 @@ from jchannel.frontend import frontend
 class DebugScenario(Enum):
     STOP_BETWEEN_STOP_AND_CLEAN = auto()
     STOP_BETWEEN_DISCONNECT_AND_RESTART = auto()
-    RESTART_BETWEEN_DISCONNECT_AND_STOP = auto()
 
 
 class DebugEvent(asyncio.Event):
@@ -115,16 +114,18 @@ class Server:
         if self.cleaned is None:
             self.cleaned = asyncio.Event()
 
-            if scenario is not None:
-                self.sentinel.enable(scenario)
+            self.sentinel.enable(scenario)
 
             loop = asyncio.get_running_loop()
             self.connection = loop.create_future()
             self.disconnection = loop.create_future()
 
             app = web.Application()
+
             app.socket = None
+
             app.on_shutdown.append(self._on_shutdown)
+
             app.add_routes([
                 web.get('/socket', self._handle_socket),
                 web.get('/', self._handle_get),
@@ -170,7 +171,6 @@ class Server:
             restarting = await self.disconnection
 
             await self.sentinel.set_and_yield(DebugScenario.STOP_BETWEEN_DISCONNECT_AND_RESTART)
-            await self.sentinel.wait_on_count(DebugScenario.RESTART_BETWEEN_DISCONNECT_AND_STOP, 1)
 
             if restarting:
                 loop = asyncio.get_running_loop()
@@ -233,34 +233,33 @@ class Server:
 
         request.app.socket = socket
 
-        async for message in socket:
-            if message.type == WSMsgType.TEXT:
-                kwargs = json.loads(message.data)
-                data_type = kwargs.pop('type')
+        try:
+            async for message in socket:
+                if message.type == WSMsgType.TEXT:
+                    kwargs = json.loads(message.data)
+                    data_type = kwargs.pop('type')
 
-                match data_type:
-                    case _:
-                        logging.error(f'Received unexpected data type {data_type}')
-            else:
-                logging.error(f'Received unexpected message type {message.type}')
+                    match data_type:
+                        case _:
+                            logging.error(f'Received unexpected data type {data_type}')
+                else:
+                    logging.error(f'Received unexpected message type {message.type}')
+        except Exception:
+            logging.exception('Caught unexpected exception')
 
-        request.app.socket = None
+            request.app.socket = None
 
         if self.disconnection is not None:
             if not self.disconnection.done():
                 self.disconnection.set_result(True)
 
-        await self.sentinel.set_and_yield(DebugScenario.RESTART_BETWEEN_DISCONNECT_AND_STOP)
-
         return socket
 
     async def _handle_get(self, request):
-        response = web.Response()
-        return response
+        return web.Response()
 
     async def _handle_post(self, request):
-        response = web.Response()
-        return response
+        return web.Response()
 
 
 try:

@@ -245,12 +245,3 @@ async def test_restarts_and_does_not_stop(server_with_client):
         await server.stop()
     await server.stop()
     await client.disconnection()
-
-
-async def test_restarts_and_stops(server_with_client):
-    server, client = server_with_client
-    await start_with_sentinel(server, DebugScenario.RESTART_BETWEEN_DISCONNECT_AND_STOP)
-    await client.connection()
-    await server._send('disconnect')
-    await server.stop()
-    await client.disconnection()
