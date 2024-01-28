@@ -3,7 +3,7 @@ import asyncio
 import pytest
 
 from aiohttp import ClientSession, WSMsgType
-from jchannel import Server, DebugScenario
+from jchannel.server import Server, DebugScenario
 
 
 HOST = 's'
@@ -23,7 +23,7 @@ async def test_instantiates(mocker, tag, url):
         environ = {'COLAB_RELEASE_TAG': ''}
     else:
         environ = {}
-    mocker.patch.dict('jchannel.os.environ', environ)
+    mocker.patch.dict('jchannel.server.os.environ', environ)
     server = Server(HOST, PORT, None, HEARTBEAT)
     assert server.url == url
 
@@ -190,8 +190,8 @@ def client(mocker):
         assert source == 'jchannel.start("http://localhost:8889");'
         asyncio.create_task(client.start())
 
-    default = mocker.patch('jchannel.default')
-    default.inject_code.side_effect = side_effect
+    frontend = mocker.patch('jchannel.server.frontend')
+    frontend.inject_code.side_effect = side_effect
 
     return client
 
@@ -217,7 +217,7 @@ async def test_starts_and_stops_twice(s, client):
     await client.disconnection()
 
 
-async def test_stops_and_does_not_restart(s, client):
+async def test_does_not_restart_and_stops(s, client):
     await s.start()
     await client.connection()
     await s._send('disconnect')
