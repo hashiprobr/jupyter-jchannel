@@ -123,121 +123,134 @@ async def test_does_not_instantiate_with_non_positive_heartbeat():
 
 
 @pytest.fixture
-def s():
+def server(mocker):
+    mocker.patch('jchannel.server.frontend')
+
     return Server()
 
 
-async def test_stops(s):
-    await s.stop()
+async def test_stops(server):
+    await server.stop()
 
 
-async def test_starts_and_stops_without_client(s):
-    await s.start()
-    await s.stop()
+async def test_starts_and_stops_without_client(server):
+    await server.start()
+    await server.stop()
 
 
-async def test_starts_twice_and_stops_without_client(s):
-    await s.start()
-    await s.start()
-    await s.stop()
+async def test_starts_twice_and_stops_without_client(server):
+    await server.start()
+    await server.start()
+    await server.stop()
 
 
-async def test_starts_and_stops_twice_without_client(s):
-    await s.start()
-    task_0 = s.stop()
-    task_1 = s.stop()
+async def test_starts_and_stops_twice_without_client(server):
+    await server.start()
+    task_0 = server.stop()
+    task_1 = server.stop()
     await task_0
     await task_1
 
 
+class Client:
+    def __init__(self, url):
+        self.url = url
+
+    async def start(self):
+        self.connected = asyncio.Event()
+        self.disconnected = asyncio.Event()
+        asyncio.create_task(self._run())
+
+    async def connection(self):
+        await self.connected.wait()
+
+    async def disconnection(self):
+        await self.disconnected.wait()
+
+    async def _run(self):
+        async with ClientSession() as session:
+            async with session.ws_connect(f'{self.url}/socket', autoping=False) as socket:
+                self.connected.set()
+                async for message in socket:
+                    if message.type == WSMsgType.PING:
+                        await socket.pong()
+                    else:
+                        kwargs = json.loads(message.data)
+                        match kwargs['type']:
+                            case 'disconnect':
+                                await socket.close()
+                                break
+                            case _:
+                                await socket.send_str(message.data)
+        self.disconnected.set()
+
+
+def client():
+    return Client('http://localhost:8889')
+
+
 @pytest.fixture
-def client(mocker):
-    class Client:
-        def __init__(self, url):
-            self.url = url
-
-        async def start(self):
-            self.connected = asyncio.Event()
-            self.disconnected = asyncio.Event()
-            asyncio.create_task(self._run())
-
-        async def connection(self):
-            await self.connected.wait()
-
-        async def disconnection(self):
-            await self.disconnected.wait()
-
-        async def _run(self):
-            async with ClientSession() as session:
-                async with session.ws_connect(f'{self.url}/socket', autoping=False) as socket:
-                    self.connected.set()
-                    async for message in socket:
-                        if message.type == WSMsgType.PING:
-                            await socket.pong()
-                        else:
-                            kwargs = json.loads(message.data)
-                            match kwargs['type']:
-                                case 'disconnect':
-                                    await socket.close()
-                                    break
-                                case _:
-                                    await socket.send_str(message.data)
-            self.disconnected.set()
-
-    client = Client('http://localhost:8889')
+def server_with_client(mocker):
+    s = Server()
+    c = client()
 
     def side_effect(source):
         assert source == 'jchannel.start("http://localhost:8889");'
-        asyncio.create_task(client.start())
+        asyncio.create_task(c.start())
 
     frontend = mocker.patch('jchannel.server.frontend')
     frontend.inject_code.side_effect = side_effect
 
-    return client
+    return s, c
 
 
 def start_with_sentinel(s, scenario):
     return asyncio.create_task(s._start(scenario))
 
 
-async def test_starts_and_stops(s, client):
-    await s.start()
+async def test_starts_and_stops(server_with_client):
+    server, client = server_with_client
+    await server.start()
     await client.connection()
-    await s.stop()
+    await server.stop()
     await client.disconnection()
 
 
-async def test_starts_and_stops_twice(s, client):
-    await start_with_sentinel(s, DebugScenario.STOP_BETWEEN_STOP_AND_CLEAN)
+async def test_starts_and_stops_twice(server_with_client):
+    server, client = server_with_client
+    await start_with_sentinel(server, DebugScenario.STOP_BETWEEN_STOP_AND_CLEAN)
     await client.connection()
-    task_0 = s.stop()
-    task_1 = s.stop()
+    task_0 = server.stop()
+    task_1 = server.stop()
     await task_0
     await task_1
     await client.disconnection()
 
 
-async def test_does_not_restart_and_stops(s, client):
-    await s.start()
+async def test_does_not_restart_and_stops(server_with_client):
+    server, client = server_with_client
+    await server.start()
     await client.connection()
-    await s._send('disconnect')
-    await s.stop()
+    await server._send('disconnect')
+    await server.stop()
     await client.disconnection()
 
 
-async def test_restarts_and_stops(s, client):
-    await start_with_sentinel(s, DebugScenario.RESTART_BETWEEN_DISCONNECT_AND_STOP)
+async def test_restarts_and_does_not_stop(server_with_client):
+    server, client = server_with_client
+    await start_with_sentinel(server, DebugScenario.STOP_BETWEEN_DISCONNECT_AND_RESTART)
     await client.connection()
-    await s._send('disconnect')
-    await s.stop()
-    await client.disconnection()
-
-
-async def test_restarts_and_does_not_stop(s, client):
-    await start_with_sentinel(s, DebugScenario.STOP_BETWEEN_DISCONNECT_AND_RESTART)
-    await client.connection()
-    await s._send('disconnect')
+    await server._send('disconnect')
     with pytest.raises(RuntimeError):
-        await s.stop()
-    await s.stop()
+        await server.stop()
+    await server.stop()
+    await client.disconnection()
+
+
+async def test_restarts_and_stops(server_with_client):
+    server, client = server_with_client
+    await start_with_sentinel(server, DebugScenario.RESTART_BETWEEN_DISCONNECT_AND_STOP)
+    await client.connection()
+    await server._send('disconnect')
+    await server.stop()
     await client.disconnection()

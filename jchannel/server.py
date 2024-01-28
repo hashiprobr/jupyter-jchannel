@@ -169,8 +169,8 @@ class Server:
 
             restarting = await self.disconnection
 
-            await self.sentinel.wait_on_count(DebugScenario.RESTART_BETWEEN_DISCONNECT_AND_STOP, 1)
             await self.sentinel.set_and_yield(DebugScenario.STOP_BETWEEN_DISCONNECT_AND_RESTART)
+            await self.sentinel.wait_on_count(DebugScenario.RESTART_BETWEEN_DISCONNECT_AND_STOP, 1)
 
             if restarting:
                 loop = asyncio.get_running_loop()
