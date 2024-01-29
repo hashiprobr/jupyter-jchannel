@@ -9,8 +9,8 @@ from jchannel.frontend import frontend
 
 
 class DebugScenario(Enum):
-    STOP_AFTER_DISCONNECT = auto()
     STOP_AFTER_BREAK = auto()
+    STOP_BEFORE_CLEAN = auto()
     CONNECT_BEFORE_BREAK = auto()
     CONNECT_BEFORE_CLEAN = auto()
     RECEIVE_BEFORE_CLEAN = auto()
@@ -148,24 +148,26 @@ class Server:
             asyncio.create_task(self._run(runner, site))
 
     async def _stop(self):
-        await self.sentinel.wait_on_count(DebugScenario.STOP_AFTER_BREAK, 2)
-        await self.sentinel.wait_on_count(DebugScenario.STOP_AFTER_DISCONNECT, 1)
+        try:
+            await self.sentinel.wait_on_count(DebugScenario.STOP_AFTER_BREAK, 2)
 
-        if self.cleaned is not None:
-            if self.connection is not None:
-                if not self.connection.done():
-                    self.connection.set_result(None)
+            if self.cleaned is not None:
+                if self.connection is not None:
+                    if not self.connection.done():
+                        self.connection.set_result(None)
 
-            if self.disconnection is not None:
-                if self.disconnection.done():
-                    restarting = self.disconnection.result()
+                if self.disconnection is not None:
+                    if self.disconnection.done():
+                        restarting = self.disconnection.result()
 
-                    if restarting:
-                        raise RuntimeError('Cannot stop server while restarting')
-                else:
-                    self.disconnection.set_result(False)
+                        if restarting:
+                            raise RuntimeError('Cannot stop server while restarting')
+                    else:
+                        self.disconnection.set_result(False)
 
-            await self.cleaned.wait()
+                await self.cleaned.wait()
+        finally:
+            await self.sentinel.set_and_yield(DebugScenario.STOP_BEFORE_CLEAN)
 
     async def _run(self, runner, site):
         restarting = True
@@ -176,7 +178,7 @@ class Server:
             restarting = await self.disconnection
 
             if restarting:
-                await self.sentinel.set_and_yield(DebugScenario.STOP_AFTER_DISCONNECT)
+                await self.sentinel.wait_on_count(DebugScenario.STOP_BEFORE_CLEAN, 1)
 
                 loop = asyncio.get_running_loop()
                 self.connection = loop.create_future()
