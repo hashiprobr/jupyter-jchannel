@@ -9,13 +9,13 @@ from jchannel.frontend import frontend
 
 
 class DebugScenario(Enum):
-    STOP_AFTER_BREAK = auto()
     STOP_AFTER_DISCONNECT = auto()
+    STOP_AFTER_BREAK = auto()
     CONNECT_BEFORE_BREAK = auto()
     CONNECT_BEFORE_CLEAN = auto()
-    DISCONNECT_BEFORE_BREAK = auto()
     RECEIVE_BEFORE_CLEAN = auto()
     EXCEPT_BEFORE_CLEAN = auto()
+    DISCONNECT_BEFORE_BREAK = auto()
 
 
 class DebugEvent(asyncio.Event):
