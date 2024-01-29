@@ -1,5 +1,6 @@
 import json
 import asyncio
+import logging
 import pytest
 
 from aiohttp import ClientSession, WSMsgType
@@ -152,6 +153,19 @@ async def test_starts_and_stops_twice_without_client(server):
     await task_1
 
 
+async def test_does_not_send_without_client(server):
+    with pytest.raises(RuntimeError):
+        await server._send('close')
+
+
+async def test_does_not_send(server):
+    await server.start()
+    task = server.stop()
+    with pytest.raises(RuntimeError):
+        await server._send('close')
+    await task
+
+
 class Client:
     def __init__(self, url):
         self.url = url
@@ -177,9 +191,13 @@ class Client:
                     else:
                         kwargs = json.loads(message.data)
                         match kwargs['type']:
-                            case 'disconnect':
+                            case 'close':
                                 await socket.close()
                                 break
+                            case 'bytes':
+                                await socket.send_bytes(b'')
+                            case 'empty':
+                                await socket.send_str('')
                             case _:
                                 await socket.send_str(message.data)
         self.disconnected.set()
@@ -208,17 +226,9 @@ def start_with_sentinel(s, scenario):
     return asyncio.create_task(s._start(scenario))
 
 
-async def test_starts_and_stops(server_with_client):
+async def test_connects_breaks_and_stops(server_with_client):
     server, client = server_with_client
-    await server.start()
-    await client.connection()
-    await server.stop()
-    await client.disconnection()
-
-
-async def test_starts_and_stops_twice(server_with_client):
-    server, client = server_with_client
-    await start_with_sentinel(server, DebugScenario.STOP_BETWEEN_STOP_AND_CLEAN)
+    await start_with_sentinel(server, DebugScenario.STOP_AFTER_BREAK)
     await client.connection()
     task_0 = server.stop()
     task_1 = server.stop()
@@ -227,21 +237,85 @@ async def test_starts_and_stops_twice(server_with_client):
     await client.disconnection()
 
 
-async def test_does_not_restart_and_stops(server_with_client):
+async def test_connects_disconnects_breaks_and_stops(server_with_client):
     server, client = server_with_client
-    await server.start()
+    await start_with_sentinel(server, DebugScenario.DISCONNECT_BEFORE_BREAK)
     await client.connection()
-    await server._send('disconnect')
+    await server._send('close')
     await server.stop()
     await client.disconnection()
 
 
-async def test_restarts_and_does_not_stop(server_with_client):
+async def test_connects_disconnects_and_does_not_stop(server_with_client):
     server, client = server_with_client
-    await start_with_sentinel(server, DebugScenario.STOP_BETWEEN_DISCONNECT_AND_RESTART)
+    await start_with_sentinel(server, DebugScenario.STOP_AFTER_DISCONNECT)
     await client.connection()
-    await server._send('disconnect')
+    await server._send('close')
     with pytest.raises(RuntimeError):
         await server.stop()
     await server.stop()
     await client.disconnection()
+
+
+async def test_does_not_connect_breaks_and_stops(server_with_client):
+    server, client = server_with_client
+    await start_with_sentinel(server, DebugScenario.CONNECT_BEFORE_BREAK)
+    await server.stop()
+    await client.connection()
+    await client.disconnection()
+
+
+async def test_breaks_does_not_connect_and_stops(server_with_client):
+    server, client = server_with_client
+    await start_with_sentinel(server, DebugScenario.CONNECT_BEFORE_CLEAN)
+    await server.stop()
+    await client.connection()
+    await client.disconnection()
+
+
+async def test_connects_does_not_connect_breaks_and_stops(caplog, server_with_client):
+    with caplog.at_level(logging.ERROR):
+        server, client_0 = server_with_client
+        client_1 = client()
+        await server.start()
+        await client_1.start()
+        await client_0.connection()
+        await client_1.connection()
+        await server.stop()
+        await client_0.disconnection()
+        await client_1.disconnection()
+    assert caplog.records
+
+
+async def test_receives_unexpected_message_type(caplog, server_with_client):
+    with caplog.at_level(logging.ERROR):
+        server, client = server_with_client
+        await start_with_sentinel(server, DebugScenario.RECEIVE_BEFORE_CLEAN)
+        await server.start()
+        await client.connection()
+        await server._send('bytes')
+        await server.stop()
+        await client.disconnection()
+    assert caplog.records
+
+
+async def test_receives_unexpected_data_type(caplog, server_with_client):
+    with caplog.at_level(logging.ERROR):
+        server, client = server_with_client
+        await start_with_sentinel(server, DebugScenario.RECEIVE_BEFORE_CLEAN)
+        await client.connection()
+        await server._send('error')
+        await server.stop()
+        await client.disconnection()
+    assert caplog.records
+
+
+async def test_raises_exception(caplog, server_with_client):
+    with caplog.at_level(logging.ERROR):
+        server, client = server_with_client
+        await start_with_sentinel(server, DebugScenario.EXCEPT_BEFORE_CLEAN)
+        await client.connection()
+        await server._send('empty')
+        await server.stop()
+        await client.disconnection()
+    assert caplog.records

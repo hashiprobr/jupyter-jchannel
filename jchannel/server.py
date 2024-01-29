@@ -9,8 +9,13 @@ from jchannel.frontend import frontend
 
 
 class DebugScenario(Enum):
-    STOP_BETWEEN_STOP_AND_CLEAN = auto()
-    STOP_BETWEEN_DISCONNECT_AND_RESTART = auto()
+    STOP_AFTER_BREAK = auto()
+    STOP_AFTER_DISCONNECT = auto()
+    CONNECT_BEFORE_BREAK = auto()
+    CONNECT_BEFORE_CLEAN = auto()
+    DISCONNECT_BEFORE_BREAK = auto()
+    RECEIVE_BEFORE_CLEAN = auto()
+    EXCEPT_BEFORE_CLEAN = auto()
 
 
 class DebugEvent(asyncio.Event):
@@ -143,8 +148,8 @@ class Server:
             asyncio.create_task(self._run(runner, site))
 
     async def _stop(self):
-        await self.sentinel.wait_on_count(DebugScenario.STOP_BETWEEN_STOP_AND_CLEAN, 2)
-        await self.sentinel.wait_on_count(DebugScenario.STOP_BETWEEN_DISCONNECT_AND_RESTART, 1)
+        await self.sentinel.wait_on_count(DebugScenario.STOP_AFTER_BREAK, 2)
+        await self.sentinel.wait_on_count(DebugScenario.STOP_AFTER_DISCONNECT, 1)
 
         if self.cleaned is not None:
             if self.connection is not None:
@@ -170,17 +175,23 @@ class Server:
 
             restarting = await self.disconnection
 
-            await self.sentinel.set_and_yield(DebugScenario.STOP_BETWEEN_DISCONNECT_AND_RESTART)
-
             if restarting:
+                await self.sentinel.set_and_yield(DebugScenario.STOP_AFTER_DISCONNECT)
+
                 loop = asyncio.get_running_loop()
                 self.connection = loop.create_future()
                 self.disconnection = loop.create_future()
             else:
+                await self.sentinel.wait_on_count(DebugScenario.CONNECT_BEFORE_BREAK, 1)
+                await self.sentinel.wait_on_count(DebugScenario.DISCONNECT_BEFORE_BREAK, 1)
+
                 self.connection = None
                 self.disconnection = None
 
-        await self.sentinel.set_and_yield(DebugScenario.STOP_BETWEEN_STOP_AND_CLEAN)
+        await self.sentinel.set_and_yield(DebugScenario.STOP_AFTER_BREAK)
+        await self.sentinel.wait_on_count(DebugScenario.CONNECT_BEFORE_CLEAN, 1)
+        await self.sentinel.wait_on_count(DebugScenario.RECEIVE_BEFORE_CLEAN, 1)
+        await self.sentinel.wait_on_count(DebugScenario.EXCEPT_BEFORE_CLEAN, 1)
 
         await site.stop()
         await runner.cleanup()
@@ -216,50 +227,63 @@ class Server:
 
     async def _handle_socket(self, request):
         if self.connection is None:
-            return self._reject()
+            socket = await self._reject(request)
+        else:
+            if self.connection.done():
+                socket = self.connection.result()
 
-        if self.connection.done():
-            socket = self.connection.result()
+                if socket is not None:
+                    logging.error('Received socket request while already connected')
 
-            if socket is not None:
-                logging.error('Received socket request while already connected')
+                socket = await self._reject(request)
+            else:
+                socket = web.WebSocketResponse(heartbeat=self.heartbeat)
+                await socket.prepare(request)
 
-            return self._reject()
+                self.connection.set_result(socket)
 
-        socket = web.WebSocketResponse(heartbeat=self.heartbeat)
-        await socket.prepare(request)
+                request.app.socket = socket
 
-        self.connection.set_result(socket)
+                try:
+                    async for message in socket:
+                        if message.type == WSMsgType.TEXT:
+                            kwargs = json.loads(message.data)
+                            data_type = kwargs.pop('type')
 
-        request.app.socket = socket
+                            match data_type:
+                                case _:
+                                    logging.error(f'Received unexpected data type {data_type}')
+                        else:
+                            logging.error(f'Received unexpected message type {message.type}')
 
-        try:
-            async for message in socket:
-                if message.type == WSMsgType.TEXT:
-                    kwargs = json.loads(message.data)
-                    data_type = kwargs.pop('type')
+                        await self.sentinel.set_and_yield(DebugScenario.RECEIVE_BEFORE_CLEAN)
+                except Exception:
+                    logging.exception('Caught unexpected exception')
 
-                    match data_type:
-                        case _:
-                            logging.error(f'Received unexpected data type {data_type}')
-                else:
-                    logging.error(f'Received unexpected message type {message.type}')
-        except Exception:
-            logging.exception('Caught unexpected exception')
+                    await self.sentinel.set_and_yield(DebugScenario.EXCEPT_BEFORE_CLEAN)
+                finally:
+                    request.app.socket = None
 
-            request.app.socket = None
+                if self.disconnection is not None:
+                    if not self.disconnection.done():
+                        self.disconnection.set_result(True)
 
-        if self.disconnection is not None:
-            if not self.disconnection.done():
-                self.disconnection.set_result(True)
+                await self.sentinel.set_and_yield(DebugScenario.DISCONNECT_BEFORE_BREAK)
+
+        await self.sentinel.set_and_yield(DebugScenario.CONNECT_BEFORE_BREAK)
+        await self.sentinel.set_and_yield(DebugScenario.CONNECT_BEFORE_CLEAN)
 
         return socket
 
     async def _handle_get(self, request):
-        return web.Response()
+        """
+        TODO
+        """
 
     async def _handle_post(self, request):
-        return web.Response()
+        """
+        TODO
+        """
 
 
 try:
