@@ -149,14 +149,14 @@ async def test_starts_and_stops_twice(s):
 
 async def test_does_not_send(s):
     with pytest.raises(RuntimeError):
-        await s._send('close')
+        await s._send('')
 
 
 async def test_starts_stops_and_does_not_send(s):
     await s.start()
     task = s.stop()
     with pytest.raises(RuntimeError):
-        await s._send('close')
+        await s._send('')
     await task
 
 
@@ -271,23 +271,23 @@ async def test_breaks_does_not_connect_and_cleans(server_with_client):
     await c.disconnection()
 
 
-async def test_receives_unexpected_message_type(caplog, server_with_client):
-    with caplog.at_level(logging.ERROR):
-        s, c = server_with_client
-        await start_with_sentinel(s, DebugScenario.RECEIVE_BEFORE_CLEAN)
-        await c.connection()
-        await s._send('bytes')
-        await s.stop()
-        await c.disconnection()
-    assert caplog.records
-
-
 async def test_receives_unexpected_data_type(caplog, server_with_client):
     with caplog.at_level(logging.ERROR):
         s, c = server_with_client
         await start_with_sentinel(s, DebugScenario.RECEIVE_BEFORE_CLEAN)
         await c.connection()
         await s._send('error')
+        await s.stop()
+        await c.disconnection()
+    assert caplog.records
+
+
+async def test_receives_unexpected_message_type(caplog, server_with_client):
+    with caplog.at_level(logging.ERROR):
+        s, c = server_with_client
+        await start_with_sentinel(s, DebugScenario.RECEIVE_BEFORE_CLEAN)
+        await c.connection()
+        await s._send('bytes')
         await s.stop()
         await c.disconnection()
     assert caplog.records
