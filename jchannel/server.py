@@ -8,6 +8,10 @@ from aiohttp import web, WSMsgType
 from jchannel.frontend import frontend
 
 
+class StateError(Exception):
+    pass
+
+
 class DebugScenario(Enum):
     STOP_BEFORE_RESTART = auto()
     STOP_AFTER_BREAK = auto()
@@ -161,7 +165,7 @@ class Server:
                         restarting = self.disconnection.result()
 
                         if restarting:
-                            raise RuntimeError('Cannot stop server while restarting')
+                            raise StateError('Cannot stop server while restarting')
                     else:
                         self.disconnection.set_result(False)
 
@@ -216,7 +220,7 @@ class Server:
             socket = await self.connection
 
         if socket is None:
-            raise RuntimeError('Server not running')
+            raise StateError('Server not running')
 
         kwargs['type'] = data_type
         data = json.dumps(kwargs)
@@ -235,7 +239,7 @@ class Server:
                 socket = self.connection.result()
 
                 if socket is not None:
-                    logging.error('Received socket request while already connected')
+                    logging.warning('Received socket request while already connected')
 
                 socket = await self._reject(request)
             else:

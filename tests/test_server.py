@@ -250,7 +250,7 @@ async def test_stops_and_does_not_connect(server_with_client):
 
 
 async def test_connects_does_not_connect_and_stops(caplog, server_with_client):
-    with caplog.at_level(logging.ERROR):
+    with caplog.at_level(logging.WARNING):
         s, c_0 = server_with_client
         c_1 = client()
         await s.start()
