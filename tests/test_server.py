@@ -148,14 +148,14 @@ async def test_starts_and_stops_twice(s):
 
 
 async def test_does_not_send(s):
-    with pytest.raises(RuntimeError):
+    with pytest.raises(StateError):
         await s._send('')
 
 
 async def test_starts_stops_and_does_not_send(s):
     await s.start()
     task = s.stop()
-    with pytest.raises(RuntimeError):
+    with pytest.raises(StateError):
         await s._send('')
     await task
 
