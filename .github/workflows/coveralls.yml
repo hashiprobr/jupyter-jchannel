@@ -28,7 +28,9 @@ jobs:
         pipx upgrade poetry
 
     - name: Run Tests
-      run: poetry run tests --coverage
+      run: |
+        poetry install
+        poetry run tests --coverage
 
     - name: Coveralls GitHub Action
       uses: coverallsapp/github-action@v2.2.3
