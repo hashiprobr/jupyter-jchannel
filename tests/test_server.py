@@ -226,7 +226,7 @@ async def test_connects_disconnects_does_not_stop_and_stops(server_with_client):
     await c.connection()
     await s._send('close')
     await c.disconnection()
-    with pytest.raises(RuntimeError):
+    with pytest.raises(StateError):
         await s.stop()
     await s.stop()
 
