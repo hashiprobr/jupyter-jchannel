@@ -22,8 +22,6 @@ jobs:
       run: |
         pip install --upgrade pip
         pip install pipx
-        pipx ensurepath
-        pipx install
         pipx install poetry
         pipx upgrade poetry
 
