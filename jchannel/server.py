@@ -9,13 +9,13 @@ from jchannel.frontend import frontend
 
 
 class DebugScenario(Enum):
+    STOP_BEFORE_RESTART = auto()
     STOP_AFTER_BREAK = auto()
-    STOP_BEFORE_CLEAN = auto()
     CONNECT_BEFORE_BREAK = auto()
     CONNECT_BEFORE_CLEAN = auto()
     RECEIVE_BEFORE_CLEAN = auto()
-    EXCEPT_BEFORE_CLEAN = auto()
-    DISCONNECT_BEFORE_BREAK = auto()
+    CATCH_BEFORE_CLEAN = auto()
+    DISCONNECT_AFTER_STOP = auto()
 
 
 class DebugEvent(asyncio.Event):
@@ -167,7 +167,7 @@ class Server:
 
                 await self.cleaned.wait()
         finally:
-            await self.sentinel.set_and_yield(DebugScenario.STOP_BEFORE_CLEAN)
+            await self.sentinel.set_and_yield(DebugScenario.STOP_BEFORE_RESTART)
 
     async def _run(self, runner, site):
         restarting = True
@@ -178,14 +178,14 @@ class Server:
             restarting = await self.disconnection
 
             if restarting:
-                await self.sentinel.wait_on_count(DebugScenario.STOP_BEFORE_CLEAN, 1)
+                await self.sentinel.wait_on_count(DebugScenario.STOP_BEFORE_RESTART, 1)
 
                 loop = asyncio.get_running_loop()
                 self.connection = loop.create_future()
                 self.disconnection = loop.create_future()
             else:
+                await self.sentinel.set_and_yield(DebugScenario.DISCONNECT_AFTER_STOP)
                 await self.sentinel.wait_on_count(DebugScenario.CONNECT_BEFORE_BREAK, 1)
-                await self.sentinel.wait_on_count(DebugScenario.DISCONNECT_BEFORE_BREAK, 1)
 
                 self.connection = None
                 self.disconnection = None
@@ -193,7 +193,7 @@ class Server:
         await self.sentinel.set_and_yield(DebugScenario.STOP_AFTER_BREAK)
         await self.sentinel.wait_on_count(DebugScenario.CONNECT_BEFORE_CLEAN, 1)
         await self.sentinel.wait_on_count(DebugScenario.RECEIVE_BEFORE_CLEAN, 1)
-        await self.sentinel.wait_on_count(DebugScenario.EXCEPT_BEFORE_CLEAN, 1)
+        await self.sentinel.wait_on_count(DebugScenario.CATCH_BEFORE_CLEAN, 1)
 
         await site.stop()
         await runner.cleanup()
@@ -262,15 +262,15 @@ class Server:
                 except Exception:
                     logging.exception('Caught unexpected exception')
 
-                    await self.sentinel.set_and_yield(DebugScenario.EXCEPT_BEFORE_CLEAN)
+                    await self.sentinel.set_and_yield(DebugScenario.CATCH_BEFORE_CLEAN)
                 finally:
                     request.app.socket = None
+
+                await self.sentinel.wait_on_count(DebugScenario.DISCONNECT_AFTER_STOP, 1)
 
                 if self.disconnection is not None:
                     if not self.disconnection.done():
                         self.disconnection.set_result(True)
-
-                await self.sentinel.set_and_yield(DebugScenario.DISCONNECT_BEFORE_BREAK)
 
         await self.sentinel.set_and_yield(DebugScenario.CONNECT_BEFORE_BREAK)
         await self.sentinel.set_and_yield(DebugScenario.CONNECT_BEFORE_CLEAN)

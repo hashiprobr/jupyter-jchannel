@@ -134,11 +134,6 @@ async def test_stops(s):
     await s.stop()
 
 
-async def test_starts_and_stops(s):
-    await s.start()
-    await s.stop()
-
-
 async def test_starts_twice_and_stops(s):
     await s.start()
     await s.start()
@@ -227,7 +222,7 @@ def start_with_sentinel(s, scenario):
 
 async def test_connects_disconnects_does_not_stop_and_stops(server_with_client):
     s, c = server_with_client
-    await start_with_sentinel(s, DebugScenario.STOP_BEFORE_CLEAN)
+    await start_with_sentinel(s, DebugScenario.STOP_BEFORE_RESTART)
     await c.connection()
     await s._send('close')
     await c.disconnection()
@@ -280,7 +275,6 @@ async def test_receives_unexpected_message_type(caplog, server_with_client):
     with caplog.at_level(logging.ERROR):
         s, c = server_with_client
         await start_with_sentinel(s, DebugScenario.RECEIVE_BEFORE_CLEAN)
-        await s.start()
         await c.connection()
         await s._send('bytes')
         await s.stop()
@@ -302,7 +296,7 @@ async def test_receives_unexpected_data_type(caplog, server_with_client):
 async def test_catches_unexpected_exception(caplog, server_with_client):
     with caplog.at_level(logging.ERROR):
         s, c = server_with_client
-        await start_with_sentinel(s, DebugScenario.EXCEPT_BEFORE_CLEAN)
+        await start_with_sentinel(s, DebugScenario.CATCH_BEFORE_CLEAN)
         await c.connection()
         await s._send('empty')
         await s.stop()
@@ -312,7 +306,7 @@ async def test_catches_unexpected_exception(caplog, server_with_client):
 
 async def test_connects_disconnects_and_stops(server_with_client):
     s, c = server_with_client
-    await start_with_sentinel(s, DebugScenario.DISCONNECT_BEFORE_BREAK)
+    await start_with_sentinel(s, DebugScenario.DISCONNECT_AFTER_STOP)
     await c.connection()
     await s._send('close')
     await c.disconnection()
