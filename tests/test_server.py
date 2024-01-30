@@ -4,7 +4,7 @@ import logging
 import pytest
 
 from aiohttp import ClientSession, WSMsgType
-from jchannel.server import Server, DebugScenario
+from jchannel.server import Server, StateError, DebugScenario
 
 
 HOST = 's'
