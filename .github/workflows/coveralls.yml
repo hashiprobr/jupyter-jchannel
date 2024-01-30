@@ -1,0 +1,34 @@
+name: Coveralls
+
+on:
+  - push
+  - pull_request
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+
+    - name: Checkout
+    - uses: actions/checkout@v4.1.1
+
+    - name: Setup Python 3.10
+      uses: actions/setup-python@v5.0.0
+      with:
+        python-version: '3.10'
+
+    - name: Setup Poetry
+      run: |
+        pip install --upgrade pip
+        pip install pipx
+        pipx ensurepath
+        pipx install
+        pipx install poetry
+        pipx upgrade poetry
+
+    - name: Run Tests
+      run: poetry run tests --coverage
+
+    - name: Coveralls GitHub Action
+      uses: coverallsapp/github-action@v2.2.3
