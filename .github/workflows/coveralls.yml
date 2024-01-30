@@ -10,9 +10,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
 
-    - name: Checkout
-      uses: actions/checkout@v4.1.1
-
     - name: Setup Python 3.10
       uses: actions/setup-python@v5.0.0
       with:
@@ -25,10 +22,14 @@ jobs:
         pipx install poetry
         pipx upgrade poetry
 
+    - name: Checkout
+      uses: actions/checkout@v4.1.1
+
+    - name: Install
+      run: poetry install
+
     - name: Run Tests
-      run: |
-        poetry install
-        poetry run tests --coverage
+      run: poetry run tests --coverage
 
     - name: Coveralls GitHub Action
       uses: coverallsapp/github-action@v2.2.3
