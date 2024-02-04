@@ -15,51 +15,42 @@ HEARTBEAT = 1
 pytestmark = pytest.mark.asyncio(scope='module')
 
 
-@pytest.mark.parametrize('tag, url', [
-    (False, 'http://s:0'),
-    (True, 'https://s:0'),
-])
-async def test_instantiates(mocker, tag, url):
-    if tag:
-        environ = {'COLAB_RELEASE_TAG': ''}
-    else:
-        environ = {}
-    mocker.patch.dict('jchannel.server.os.environ', environ)
+async def test_instantiates():
     server = Server(HOST, PORT, None, HEARTBEAT)
-    assert server.url == url
+    assert server.url == 'ws://s:0'
 
 
 @pytest.mark.parametrize('input, output', [
-    ('http://a', 'http://a'),
-    ('http://a/', 'http://a'),
-    ('http://a//', 'http://a'),
-    ('http:///a', 'http:///a'),
-    ('http:///a/', 'http:///a'),
-    ('http:///a//', 'http:///a'),
-    ('http:////a', 'http:////a'),
-    ('http:////a/', 'http:////a'),
-    ('http:////a//', 'http:////a'),
-    ('http://a/b', 'http://a/b'),
-    ('http://a/b/', 'http://a/b'),
-    ('http://a/b//', 'http://a/b'),
-    ('http://a//b', 'http://a//b'),
-    ('http://a//b/', 'http://a//b'),
-    ('http://a//b//', 'http://a//b'),
-    ('https://a', 'https://a'),
-    ('https://a/', 'https://a'),
-    ('https://a//', 'https://a'),
-    ('https:///a', 'https:///a'),
-    ('https:///a/', 'https:///a'),
-    ('https:///a//', 'https:///a'),
-    ('https:////a', 'https:////a'),
-    ('https:////a/', 'https:////a'),
-    ('https:////a//', 'https:////a'),
-    ('https://a/b', 'https://a/b'),
-    ('https://a/b/', 'https://a/b'),
-    ('https://a/b//', 'https://a/b'),
-    ('https://a//b', 'https://a//b'),
-    ('https://a//b/', 'https://a//b'),
-    ('https://a//b//', 'https://a//b'),
+    ('ws://a', 'ws://a'),
+    ('ws://a/', 'ws://a'),
+    ('ws://a//', 'ws://a'),
+    ('ws:///a', 'ws:///a'),
+    ('ws:///a/', 'ws:///a'),
+    ('ws:///a//', 'ws:///a'),
+    ('ws:////a', 'ws:////a'),
+    ('ws:////a/', 'ws:////a'),
+    ('ws:////a//', 'ws:////a'),
+    ('ws://a/b', 'ws://a/b'),
+    ('ws://a/b/', 'ws://a/b'),
+    ('ws://a/b//', 'ws://a/b'),
+    ('ws://a//b', 'ws://a//b'),
+    ('ws://a//b/', 'ws://a//b'),
+    ('ws://a//b//', 'ws://a//b'),
+    ('wss://a', 'wss://a'),
+    ('wss://a/', 'wss://a'),
+    ('wss://a//', 'wss://a'),
+    ('wss:///a', 'wss:///a'),
+    ('wss:///a/', 'wss:///a'),
+    ('wss:///a//', 'wss:///a'),
+    ('wss:////a', 'wss:////a'),
+    ('wss:////a/', 'wss:////a'),
+    ('wss:////a//', 'wss:////a'),
+    ('wss://a/b', 'wss://a/b'),
+    ('wss://a/b/', 'wss://a/b'),
+    ('wss://a/b//', 'wss://a/b'),
+    ('wss://a//b', 'wss://a//b'),
+    ('wss://a//b/', 'wss://a//b'),
+    ('wss://a//b//', 'wss://a//b'),
 ])
 async def test_instantiates_with_url(input, output):
     server = Server(HOST, PORT, input, HEARTBEAT)
@@ -86,14 +77,14 @@ async def test_does_not_instantiate_with_non_string_url():
         Server(HOST, PORT, 0, HEARTBEAT)
 
 
-async def test_does_not_instantiate_with_non_http_url_start():
+async def test_does_not_instantiate_with_non_ws_url_start():
     with pytest.raises(ValueError):
-        Server(HOST, PORT, 'file://a', HEARTBEAT)
+        Server(HOST, PORT, 'http://a', HEARTBEAT)
 
 
 @pytest.mark.parametrize('url', [
-    'http:/a',
-    'https:/a',
+    'ws:/a',
+    'wss:/a',
 ])
 async def test_does_not_instantiate_with_invalid_url_start(url):
     with pytest.raises(ValueError):
@@ -101,12 +92,12 @@ async def test_does_not_instantiate_with_invalid_url_start(url):
 
 
 @pytest.mark.parametrize('url', [
-    'http://',
-    'http:///',
-    'http:////',
-    'https://',
-    'https:///',
-    'https:////',
+    'ws://',
+    'ws:///',
+    'ws:////',
+    'wss://',
+    'wss:///',
+    'wss:////',
 ])
 async def test_does_not_instantiate_with_empty_url_authority(url):
     with pytest.raises(ValueError):
@@ -198,7 +189,7 @@ class Client:
 
 
 def client():
-    return Client('http://localhost:8889')
+    return Client('ws://localhost:8889')
 
 
 @pytest.fixture
@@ -207,7 +198,7 @@ def server_with_client(mocker):
     c = client()
 
     def side_effect(source):
-        assert source == 'jchannel.start("http://localhost:8889");'
+        assert source == 'jchannel.start("ws://localhost:8889");'
         asyncio.create_task(c.start())
 
     frontend = mocker.patch('jchannel.server.frontend')

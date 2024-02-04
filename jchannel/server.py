@@ -62,26 +62,21 @@ class Server:
             raise ValueError('Port must be non-negative')
 
         if url is None:
-            if 'COLAB_RELEASE_TAG' in os.environ:
-                scheme = 'https'
-            else:
-                scheme = 'http'
-
-            url = f'{scheme}://{host}:{port}'
+            url = f'ws://{host}:{port}'
         else:
             if not isinstance(url, str):
                 raise TypeError('URL must be a string')
 
-            if not url.startswith('http'):
-                raise ValueError('URL must start with http')
+            if not url.startswith('ws'):
+                raise ValueError('URL must start with ws')
 
-            if url[4] == 's':
-                start = 8
+            if url[2] == 's':
+                start = 6
             else:
-                start = 7
+                start = 5
 
             if url[(start - 3):start] != '://':
-                raise ValueError('URL must start with http:// or https://')
+                raise ValueError('URL must start with ws:// or wss://')
 
             end = len(url) - 1
             while end >= start and url[end] == '/':
