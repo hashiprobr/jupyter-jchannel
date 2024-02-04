@@ -152,9 +152,9 @@ class Server:
             asyncio.create_task(self._run(runner, site))
 
     async def _stop(self):
-        try:
-            await self.sentinel.wait_on_count(DebugScenario.STOP_AFTER_BREAK, 2)
+        await self.sentinel.wait_on_count(DebugScenario.STOP_AFTER_BREAK, 2)
 
+        try:
             if self.cleaned is not None:
                 if self.connection is not None:
                     if not self.connection.done():
@@ -207,8 +207,8 @@ class Server:
 
     async def _reject(self, request):
         socket = web.WebSocketResponse()
-        await socket.prepare(request)
 
+        await socket.prepare(request)
         await socket.close()
 
         return socket
@@ -220,7 +220,7 @@ class Server:
             socket = await self.connection
 
         if socket is None:
-            raise StateError('Server not running')
+            raise StateError('Server not connected')
 
         kwargs['type'] = data_type
         data = json.dumps(kwargs)
@@ -244,9 +244,9 @@ class Server:
                 socket = await self._reject(request)
             else:
                 socket = web.WebSocketResponse(heartbeat=self.heartbeat)
-                await socket.prepare(request)
-
                 self.connection.set_result(socket)
+
+                await socket.prepare(request)
 
                 request.app.socket = socket
 
@@ -274,6 +274,8 @@ class Server:
 
                 if self.disconnection is not None:
                     if not self.disconnection.done():
+                        logging.warning('Unexpected client disconnection')
+
                         self.disconnection.set_result(True)
 
         await self.sentinel.set_and_yield(DebugScenario.CONNECT_BEFORE_BREAK)
