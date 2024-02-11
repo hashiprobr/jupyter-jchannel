@@ -211,15 +211,17 @@ def start_with_sentinel(s, scenario):
     return asyncio.create_task(s._start(scenario))
 
 
-async def test_connects_disconnects_does_not_stop_and_stops(server_with_client):
-    s, c = server_with_client
-    await start_with_sentinel(s, DebugScenario.STOP_BEFORE_RESTART)
-    await c.connection()
-    await s._send('close')
-    await c.disconnection()
-    with pytest.raises(StateError):
+async def test_connects_disconnects_does_not_stop_and_stops(caplog, server_with_client):
+    with caplog.at_level(logging.WARNING):
+        s, c = server_with_client
+        await start_with_sentinel(s, DebugScenario.STOP_BEFORE_RESTART)
+        await c.connection()
+        await s._send('close')
+        await c.disconnection()
+        with pytest.raises(StateError):
+            await s.stop()
         await s.stop()
-    await s.stop()
+    assert caplog.records
 
 
 async def test_connects_and_stops_twice(server_with_client):

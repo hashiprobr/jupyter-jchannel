@@ -203,6 +203,7 @@ class Server:
         socket = web.WebSocketResponse()
 
         await socket.prepare(request)
+
         await socket.close()
 
         return socket
@@ -238,6 +239,7 @@ class Server:
                 socket = await self._reject(request)
             else:
                 socket = web.WebSocketResponse(heartbeat=self.heartbeat)
+
                 self.connection.set_result(socket)
 
                 await socket.prepare(request)
