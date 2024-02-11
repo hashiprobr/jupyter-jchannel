@@ -197,12 +197,12 @@ def server_with_client(mocker):
     s = Server()
     c = client()
 
-    def side_effect(source):
-        assert source == 'jchannel.start("ws://localhost:8889");'
+    def side_effect(code):
+        assert code == "jchannel.start('ws://localhost:8889')"
         asyncio.create_task(c.start())
 
     frontend = mocker.patch('jchannel.server.frontend')
-    frontend.inject_code.side_effect = side_effect
+    frontend.run.side_effect = side_effect
 
     return s, c
 

@@ -1,4 +1,3 @@
-import os
 import json
 import asyncio
 import logging
@@ -142,7 +141,7 @@ class Server:
             site = web.TCPSite(runner, self.host, self.port)
             await site.start()
 
-            frontend.inject_code(f'jchannel.start("{self.url}");')
+            frontend.run(f"jchannel.start('{self.url}')")
 
             asyncio.create_task(self._run(runner, site))
 
@@ -279,19 +278,11 @@ class Server:
         return socket
 
     async def _handle_get(self, request):
-        """
+        '''
         TODO
-        """
+        '''
 
     async def _handle_post(self, request):
-        """
+        '''
         TODO
-        """
-
-
-try:
-    url = os.environ['JCHANNEL_CLIENT_URL']
-except KeyError:
-    url = 'TODO'
-
-frontend.inject_file(url)
+        '''

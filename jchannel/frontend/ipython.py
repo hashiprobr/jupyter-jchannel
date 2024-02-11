@@ -1,10 +1,18 @@
-from IPython.display import HTML
+from IPython.display import clear_output, display, Javascript
+from ipywidgets import Output
 from jchannel.frontend.abstract import AbstractFrontend
 
 
 class IPythonFrontend(AbstractFrontend):
-    def inject_file(self, url):
-        HTML(f'<script src="{url}"></script>')
+    def __init__(self):
+        super().__init__()
+        self.output = Output(_view_count=0)
 
-    def inject_code(self, source):
-        HTML(f'<script>{source}</script>')
+    def _run(self, code):
+        if self.output._view_count == 0:
+            display(self.output)
+
+        with self.output:
+            element = Javascript(code)
+            display(element)
+            clear_output()
