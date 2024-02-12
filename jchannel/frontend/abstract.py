@@ -28,7 +28,7 @@ class AbstractFrontend(ABC):
                     }});
 
                     script.addEventListener('error', () => {{
-                        reject(new Error('Client not loaded'));
+                        reject(new Error('Could not load client'));
                     }});
 
                     script.src = '{self.url}';
