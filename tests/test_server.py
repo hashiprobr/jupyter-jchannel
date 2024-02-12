@@ -168,23 +168,20 @@ class Client:
 
     async def _run(self):
         async with ClientSession() as session:
-            async with session.ws_connect(f'{self.url}/socket', autoping=False) as socket:
+            async with session.ws_connect(f'{self.url}/socket') as socket:
                 self.connected.set()
                 async for message in socket:
-                    if message.type == WSMsgType.PING:
-                        await socket.pong()
-                    else:
-                        kwargs = json.loads(message.data)
-                        match kwargs['type']:
-                            case 'close':
-                                await socket.close()
-                                break
-                            case 'bytes':
-                                await socket.send_bytes(b'')
-                            case 'empty':
-                                await socket.send_str('')
-                            case _:
-                                await socket.send_str(message.data)
+                    kwargs = json.loads(message.data)
+                    match kwargs['type']:
+                        case 'close':
+                            await socket.close()
+                            break
+                        case 'bytes':
+                            await socket.send_bytes(b'')
+                        case 'empty':
+                            await socket.send_str('')
+                        case _:
+                            await socket.send_str(message.data)
         self.disconnected.set()
 
 
