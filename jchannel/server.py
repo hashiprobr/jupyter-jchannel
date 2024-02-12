@@ -19,6 +19,7 @@ class DebugScenario(Enum):
     RECEIVE_BEFORE_CLEAN = auto()
     CATCH_BEFORE_CLEAN = auto()
     DISCONNECT_AFTER_STOP = auto()
+    SEND_BEFORE_PREPARE = auto()
 
 
 class DebugEvent(asyncio.Event):
@@ -209,18 +210,24 @@ class Server:
         return socket
 
     async def _send(self, data_type, **kwargs):
-        if self.connection is None:
-            socket = None
-        else:
-            socket = await self.connection
+        try:
+            if self.connection is None:
+                socket = None
+            else:
+                socket = await self.connection
 
-        if socket is None:
-            raise StateError('Server not connected')
+            if socket is None:
+                raise StateError('Server not running')
 
-        kwargs['type'] = data_type
-        data = json.dumps(kwargs)
+            if not socket.prepared:
+                raise StateError('Server not prepared')
 
-        await socket.send_str(data)
+            kwargs['type'] = data_type
+            data = json.dumps(kwargs)
+
+            await socket.send_str(data)
+        finally:
+            await self.sentinel.set_and_yield(DebugScenario.SEND_BEFORE_PREPARE)
 
     async def _on_shutdown(self, app):
         if app.socket is not None:
@@ -241,6 +248,8 @@ class Server:
                 socket = web.WebSocketResponse(heartbeat=self.heartbeat)
 
                 self.connection.set_result(socket)
+
+                await self.sentinel.wait_on_count(DebugScenario.SEND_BEFORE_PREPARE, 1)
 
                 await socket.prepare(request)
 

@@ -304,3 +304,13 @@ async def test_connects_disconnects_and_stops(server_with_client):
     await s._send('close')
     await c.disconnection()
     await s.stop()
+
+
+async def test_does_not_send_connects_and_stops(server_with_client):
+    s, c = server_with_client
+    await start_with_sentinel(s, DebugScenario.SEND_BEFORE_PREPARE)
+    with pytest.raises(StateError):
+        await s._send('')
+    await c.connection()
+    await s.stop()
+    await c.disconnection()
