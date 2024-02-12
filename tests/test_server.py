@@ -152,9 +152,6 @@ async def test_starts_stops_and_does_not_send(s):
 
 
 class Client:
-    def __init__(self, url):
-        self.url = url
-
     async def start(self):
         self.connected = asyncio.Event()
         self.disconnected = asyncio.Event()
@@ -168,7 +165,7 @@ class Client:
 
     async def _run(self):
         async with ClientSession() as session:
-            async with session.ws_connect(f'{self.url}/socket') as socket:
+            async with session.ws_connect(f'ws://localhost:8889/socket') as socket:
                 self.connected.set()
                 async for message in socket:
                     kwargs = json.loads(message.data)
@@ -185,14 +182,10 @@ class Client:
         self.disconnected.set()
 
 
-def client():
-    return Client('ws://localhost:8889')
-
-
 @pytest.fixture
 def server_with_client(mocker):
     s = Server()
-    c = client()
+    c = Client()
 
     def side_effect(code):
         assert code == "jchannel.start('ws://localhost:8889')"
@@ -242,7 +235,7 @@ async def test_stops_and_does_not_connect(server_with_client):
 async def test_connects_does_not_connect_and_stops(caplog, server_with_client):
     with caplog.at_level(logging.WARNING):
         s, c_0 = server_with_client
-        c_1 = client()
+        c_1 = Client()
         await s.start()
         await c_1.start()
         await c_0.connection()
