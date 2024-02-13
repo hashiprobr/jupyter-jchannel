@@ -254,7 +254,7 @@ async def test_breaks_does_not_connect_and_cleans(server_with_client):
     await c.disconnection()
 
 
-async def test_receives_unexpected_data_type(caplog, server_with_client):
+async def test_receives_unexpected_body_type(caplog, server_with_client):
     with caplog.at_level(logging.ERROR):
         s, c = server_with_client
         await start_with_sentinel(s, DebugScenario.RECEIVE_BEFORE_CLEAN)
