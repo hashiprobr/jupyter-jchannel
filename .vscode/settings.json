@@ -1,4 +1,9 @@
 {
+    "python.analysis.diagnosticSeverityOverrides": {
+        "reportArgumentType": "none",
+        "reportGeneralTypeIssues": "none",
+        "reportOptionalMemberAccess": "none"
+    },
     "python.analysis.autoImportCompletions": true,
     "python.analysis.typeCheckingMode": "basic",
     "python.testing.pytestEnabled": true

@@ -209,7 +209,7 @@ class Server:
 
         return socket
 
-    async def _send(self, data_type, **kwargs):
+    async def _send(self, body_type, body={}):
         try:
             if self.connection is None:
                 socket = None
@@ -222,8 +222,8 @@ class Server:
             if not socket.prepared:
                 raise StateError('Server not prepared')
 
-            kwargs['type'] = data_type
-            data = json.dumps(kwargs)
+            body['type'] = body_type
+            data = json.dumps(body)
 
             await socket.send_str(data)
         finally:
@@ -258,12 +258,12 @@ class Server:
                 try:
                     async for message in socket:
                         if message.type == WSMsgType.TEXT:
-                            kwargs = json.loads(message.data)
-                            data_type = kwargs.pop('type')
+                            body = json.loads(message.data)
+                            body_type = body.pop('type')
 
-                            match data_type:
+                            match body_type:
                                 case _:
-                                    logging.error(f'Received unexpected data type {data_type}')
+                                    logging.error(f'Received unexpected body type {body_type}')
                         else:
                             logging.error(f'Received unexpected message type {message.type}')
 

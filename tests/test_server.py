@@ -3,7 +3,7 @@ import asyncio
 import logging
 import pytest
 
-from aiohttp import ClientSession, WSMsgType
+from aiohttp import ClientSession
 from jchannel.server import Server, StateError, DebugScenario
 
 
@@ -168,8 +168,8 @@ class Client:
             async with session.ws_connect(f'ws://localhost:8889/socket') as socket:
                 self.connected.set()
                 async for message in socket:
-                    kwargs = json.loads(message.data)
-                    match kwargs['type']:
+                    body = json.loads(message.data)
+                    match body['type']:
                         case 'close':
                             await socket.close()
                             break
