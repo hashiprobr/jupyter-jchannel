@@ -126,9 +126,8 @@ async def test_stops(s):
 
 
 async def test_starts_twice_and_stops(s):
-    await s.start()
-    await s.start()
-    await s.stop()
+    async with s:
+        await s.start()
 
 
 async def test_starts_and_stops_twice(s):
@@ -141,6 +140,12 @@ async def test_starts_and_stops_twice(s):
 async def test_does_not_send(s):
     with pytest.raises(StateError):
         await s._send('')
+
+
+async def test_starts_does_not_send_and_stops(s):
+    with pytest.raises(StateError):
+        async with s as target:
+            await target._send('', timeout=0)
 
 
 async def test_starts_stops_and_does_not_send(s):

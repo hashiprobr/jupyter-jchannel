@@ -5,7 +5,17 @@ from argparse import ArgumentParser
 
 
 def notebooks():
-    subprocess.run(['jupyter-lab'])
+    process = subprocess.Popen(['jupyter-lab'])
+
+    running = True
+
+    while running:
+        try:
+            process.wait()
+
+            running = False
+        except KeyboardInterrupt:
+            pass
 
 
 def tests():

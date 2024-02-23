@@ -114,6 +114,14 @@ class Server:
     def stop(self):
         return asyncio.create_task(self._stop())
 
+    async def __aenter__(self):
+        await self._start()
+        return self
+
+    async def __aexit__(self, exc_type, exc_value, traceback):
+        await self._stop()
+        return False
+
     async def _start(self, scenario=None):
         if self.cleaned is None:
             self.cleaned = asyncio.Event()
@@ -172,7 +180,10 @@ class Server:
         restarting = True
 
         while restarting:
-            await self.connection
+            try:
+                await self.connection
+            except asyncio.CancelledError:
+                pass
 
             restarting = await self.disconnection
 
@@ -209,12 +220,15 @@ class Server:
 
         return socket
 
-    async def _send(self, body_type, body={}):
+    async def _send(self, body_type, body={}, timeout=3):
         try:
             if self.connection is None:
                 socket = None
             else:
-                socket = await self.connection
+                try:
+                    socket = await asyncio.wait_for(self.connection, timeout)
+                except asyncio.TimeoutError:
+                    raise StateError('Client not connected: check the browser console for details')
 
             if socket is None:
                 raise StateError('Server not running')
