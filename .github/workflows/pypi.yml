@@ -1,11 +1,13 @@
-name: Coveralls
+name: PyPI
 
 on:
-  - push
+  release:
+    types:
+      - published
 
 jobs:
-  build:
-    name: Build
+  publish:
+    name: Publish
     runs-on: ubuntu-latest
     steps:
 
@@ -15,11 +17,14 @@ jobs:
         python-version: '3.10'
 
     - name: Setup Poetry
+      env:
+        PYPI_TOKEN: ${{ secrets.PYPI_TOKEN }}
       run: |
         pip install --upgrade pip
         pip install pipx
         pipx install poetry
         pipx upgrade poetry
+        poetry config pypi-token.pypi $PYPI_TOKEN
 
     - name: Checkout
       uses: actions/checkout@v4.1.1
@@ -27,8 +32,8 @@ jobs:
     - name: Install
       run: poetry install
 
-    - name: Run Tests
-      run: poetry run tests --coverage
+    - name: Build
+      run: poetry build
 
-    - name: Coveralls GitHub Action
-      uses: coverallsapp/github-action@v2.2.3
+    - name: Publish
+      uses: poetry publish
