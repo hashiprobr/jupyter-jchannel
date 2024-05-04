@@ -98,7 +98,9 @@ class Server:
         self.url = url
         self.heartbeat = heartbeat
         self.cleaned = None
-        self.sentinel = DebugSentinel()
+
+        if __debug__:
+            self.sentinel = DebugSentinel()
 
         # None: user stoppage
         # web.WebSocketResponse: client connection
@@ -126,7 +128,8 @@ class Server:
         if self.cleaned is None:
             self.cleaned = asyncio.Event()
 
-            self.sentinel.enable(scenario)
+            if __debug__:
+                self.sentinel.enable(scenario)
 
             loop = asyncio.get_running_loop()
             self.connection = loop.create_future()
@@ -155,7 +158,8 @@ class Server:
             asyncio.create_task(self._run(runner, site))
 
     async def _stop(self):
-        await self.sentinel.wait_on_count(DebugScenario.STOP_AFTER_BREAK, 2)
+        if __debug__:
+            await self.sentinel.wait_on_count(DebugScenario.STOP_AFTER_BREAK, 2)
 
         try:
             if self.cleaned is not None:
@@ -174,7 +178,8 @@ class Server:
 
                 await self.cleaned.wait()
         finally:
-            await self.sentinel.set_and_yield(DebugScenario.STOP_BEFORE_RESTART)
+            if __debug__:
+                await self.sentinel.set_and_yield(DebugScenario.STOP_BEFORE_RESTART)
 
     async def _run(self, runner, site):
         restarting = True
@@ -188,22 +193,25 @@ class Server:
             restarting = await self.disconnection
 
             if restarting:
-                await self.sentinel.wait_on_count(DebugScenario.STOP_BEFORE_RESTART, 1)
+                if __debug__:
+                    await self.sentinel.wait_on_count(DebugScenario.STOP_BEFORE_RESTART, 1)
 
                 loop = asyncio.get_running_loop()
                 self.connection = loop.create_future()
                 self.disconnection = loop.create_future()
             else:
-                await self.sentinel.set_and_yield(DebugScenario.DISCONNECT_AFTER_STOP)
-                await self.sentinel.wait_on_count(DebugScenario.CONNECT_BEFORE_BREAK, 1)
+                if __debug__:
+                    await self.sentinel.set_and_yield(DebugScenario.DISCONNECT_AFTER_STOP)
+                    await self.sentinel.wait_on_count(DebugScenario.CONNECT_BEFORE_BREAK, 1)
 
                 self.connection = None
                 self.disconnection = None
 
-        await self.sentinel.set_and_yield(DebugScenario.STOP_AFTER_BREAK)
-        await self.sentinel.wait_on_count(DebugScenario.CONNECT_BEFORE_CLEAN, 1)
-        await self.sentinel.wait_on_count(DebugScenario.RECEIVE_BEFORE_CLEAN, 1)
-        await self.sentinel.wait_on_count(DebugScenario.CATCH_BEFORE_CLEAN, 1)
+        if __debug__:
+            await self.sentinel.set_and_yield(DebugScenario.STOP_AFTER_BREAK)
+            await self.sentinel.wait_on_count(DebugScenario.CONNECT_BEFORE_CLEAN, 1)
+            await self.sentinel.wait_on_count(DebugScenario.RECEIVE_BEFORE_CLEAN, 1)
+            await self.sentinel.wait_on_count(DebugScenario.CATCH_BEFORE_CLEAN, 1)
 
         await site.stop()
         await runner.cleanup()
@@ -241,7 +249,8 @@ class Server:
 
             await socket.send_str(data)
         finally:
-            await self.sentinel.set_and_yield(DebugScenario.SEND_BEFORE_PREPARE)
+            if __debug__:
+                await self.sentinel.set_and_yield(DebugScenario.SEND_BEFORE_PREPARE)
 
     async def _on_shutdown(self, app):
         if app.socket is not None:
@@ -263,7 +272,8 @@ class Server:
 
                 self.connection.set_result(socket)
 
-                await self.sentinel.wait_on_count(DebugScenario.SEND_BEFORE_PREPARE, 1)
+                if __debug__:
+                    await self.sentinel.wait_on_count(DebugScenario.SEND_BEFORE_PREPARE, 1)
 
                 await socket.prepare(request)
 
@@ -281,15 +291,18 @@ class Server:
                         else:
                             logging.error(f'Received unexpected message type {message.type}')
 
-                        await self.sentinel.set_and_yield(DebugScenario.RECEIVE_BEFORE_CLEAN)
+                        if __debug__:
+                            await self.sentinel.set_and_yield(DebugScenario.RECEIVE_BEFORE_CLEAN)
                 except Exception:
                     logging.exception('Caught unexpected exception')
 
-                    await self.sentinel.set_and_yield(DebugScenario.CATCH_BEFORE_CLEAN)
+                    if __debug__:
+                        await self.sentinel.set_and_yield(DebugScenario.CATCH_BEFORE_CLEAN)
                 finally:
                     request.app.socket = None
 
-                await self.sentinel.wait_on_count(DebugScenario.DISCONNECT_AFTER_STOP, 1)
+                if __debug__:
+                    await self.sentinel.wait_on_count(DebugScenario.DISCONNECT_AFTER_STOP, 1)
 
                 if self.disconnection is not None:
                     if not self.disconnection.done():
@@ -297,8 +310,9 @@ class Server:
 
                         self.disconnection.set_result(True)
 
-        await self.sentinel.set_and_yield(DebugScenario.CONNECT_BEFORE_BREAK)
-        await self.sentinel.set_and_yield(DebugScenario.CONNECT_BEFORE_CLEAN)
+        if __debug__:
+            await self.sentinel.set_and_yield(DebugScenario.CONNECT_BEFORE_BREAK)
+            await self.sentinel.set_and_yield(DebugScenario.CONNECT_BEFORE_CLEAN)
 
         return socket
 
