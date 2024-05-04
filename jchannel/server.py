@@ -99,7 +99,7 @@ class Server:
         self.heartbeat = heartbeat
         self.cleaned = None
 
-        if __debug__:
+        if __debug__:  # pragma: no cover
             self.sentinel = DebugSentinel()
 
         # None: user stoppage
@@ -128,7 +128,7 @@ class Server:
         if self.cleaned is None:
             self.cleaned = asyncio.Event()
 
-            if __debug__:
+            if __debug__:  # pragma: no cover
                 self.sentinel.enable(scenario)
 
             loop = asyncio.get_running_loop()
@@ -158,7 +158,7 @@ class Server:
             asyncio.create_task(self._run(runner, site))
 
     async def _stop(self):
-        if __debug__:
+        if __debug__:  # pragma: no cover
             await self.sentinel.wait_on_count(DebugScenario.STOP_AFTER_BREAK, 2)
 
         try:
@@ -178,7 +178,7 @@ class Server:
 
                 await self.cleaned.wait()
         finally:
-            if __debug__:
+            if __debug__:  # pragma: no cover
                 await self.sentinel.set_and_yield(DebugScenario.STOP_BEFORE_RESTART)
 
     async def _run(self, runner, site):
@@ -193,21 +193,21 @@ class Server:
             restarting = await self.disconnection
 
             if restarting:
-                if __debug__:
+                if __debug__:  # pragma: no cover
                     await self.sentinel.wait_on_count(DebugScenario.STOP_BEFORE_RESTART, 1)
 
                 loop = asyncio.get_running_loop()
                 self.connection = loop.create_future()
                 self.disconnection = loop.create_future()
             else:
-                if __debug__:
+                if __debug__:  # pragma: no cover
                     await self.sentinel.set_and_yield(DebugScenario.DISCONNECT_AFTER_STOP)
                     await self.sentinel.wait_on_count(DebugScenario.CONNECT_BEFORE_BREAK, 1)
 
                 self.connection = None
                 self.disconnection = None
 
-        if __debug__:
+        if __debug__:  # pragma: no cover
             await self.sentinel.set_and_yield(DebugScenario.STOP_AFTER_BREAK)
             await self.sentinel.wait_on_count(DebugScenario.CONNECT_BEFORE_CLEAN, 1)
             await self.sentinel.wait_on_count(DebugScenario.RECEIVE_BEFORE_CLEAN, 1)
@@ -249,7 +249,7 @@ class Server:
 
             await socket.send_str(data)
         finally:
-            if __debug__:
+            if __debug__:  # pragma: no cover
                 await self.sentinel.set_and_yield(DebugScenario.SEND_BEFORE_PREPARE)
 
     async def _on_shutdown(self, app):
@@ -272,7 +272,7 @@ class Server:
 
                 self.connection.set_result(socket)
 
-                if __debug__:
+                if __debug__:  # pragma: no cover
                     await self.sentinel.wait_on_count(DebugScenario.SEND_BEFORE_PREPARE, 1)
 
                 await socket.prepare(request)
@@ -291,17 +291,17 @@ class Server:
                         else:
                             logging.error(f'Received unexpected message type {message.type}')
 
-                        if __debug__:
+                        if __debug__:  # pragma: no cover
                             await self.sentinel.set_and_yield(DebugScenario.RECEIVE_BEFORE_CLEAN)
                 except Exception:
                     logging.exception('Caught unexpected exception')
 
-                    if __debug__:
+                    if __debug__:  # pragma: no cover
                         await self.sentinel.set_and_yield(DebugScenario.CATCH_BEFORE_CLEAN)
                 finally:
                     request.app.socket = None
 
-                if __debug__:
+                if __debug__:  # pragma: no cover
                     await self.sentinel.wait_on_count(DebugScenario.DISCONNECT_AFTER_STOP, 1)
 
                 if self.disconnection is not None:
@@ -310,7 +310,7 @@ class Server:
 
                         self.disconnection.set_result(True)
 
-        if __debug__:
+        if __debug__:  # pragma: no cover
             await self.sentinel.set_and_yield(DebugScenario.CONNECT_BEFORE_BREAK)
             await self.sentinel.set_and_yield(DebugScenario.CONNECT_BEFORE_CLEAN)
 
