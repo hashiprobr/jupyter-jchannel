@@ -188,8 +188,10 @@ class Client:
                             break
                         case 'bytes':
                             await socket.send_bytes(b'')
-                        case 'empty':
+                        case 'empty-message':
                             await socket.send_str('')
+                        case 'empty-body':
+                            await socket.send_str('{}')
                         case _:
                             await socket.send_str(message.data)
         self.disconnected.set()
@@ -305,7 +307,7 @@ async def test_receives_empty_message(caplog, server_with_client):
         s, c = server_with_client
         await start_with_sentinel(s, DebugScenario.CATCH_BEFORE_CLEAN)
         await c.connection()
-        await s._send('empty')
+        await s._send('empty-message')
         await s.stop()
         await c.disconnection()
     assert caplog.records
@@ -316,7 +318,7 @@ async def test_receives_empty_body(caplog, server_with_client):
         s, c = server_with_client
         await start_with_sentinel(s, DebugScenario.CATCH_BEFORE_CLEAN)
         await c.connection()
-        await s._send('open')
+        await s._send('empty-body')
         await s.stop()
         await c.disconnection()
     assert caplog.records
