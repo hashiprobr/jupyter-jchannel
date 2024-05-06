@@ -320,7 +320,7 @@ class Server:
                                         case 'echo':
                                             body_type = 'result'
                                         case 'call':
-                                            payload = channel.handle_call(payload['name'], payload['args'])
+                                            payload = await channel.handle_call(payload['name'], payload['args'])
                                             body_type = 'result'
                                         case _:
                                             payload = f'Received unexpected body type {body_type}'

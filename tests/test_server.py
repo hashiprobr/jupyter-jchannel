@@ -201,7 +201,7 @@ class MockChannel:
     def __init__(self, server):
         server.channels[CHANNEL_KEY] = self
 
-    def handle_call(self, name, args):
+    async def handle_call(self, name, args):
         if name == 'error':
             raise Exception
         return args
