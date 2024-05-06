@@ -1,2 +1,3 @@
 class Channel:
-    pass
+    def __init__(self, server):
+        pass

@@ -12,6 +12,7 @@ PORT = 0
 HEARTBEAT = 1
 
 FUTURE_KEY = 0
+CHANNEL_KEY = 1
 
 
 pytestmark = pytest.mark.asyncio(scope='module')
@@ -195,6 +196,9 @@ class Client:
 
 
 class MockChannel:
+    def __init__(self, server):
+        server.channels[CHANNEL_KEY] = self
+
     def handle_call(self, name, args):
         if name == 'error':
             raise Exception
@@ -204,7 +208,7 @@ class MockChannel:
 @pytest.fixture
 def server_with_client(mocker):
     Channel = mocker.patch('jchannel.server.Channel')
-    Channel.return_value = MockChannel()
+    Channel.side_effect = MockChannel
 
     s = Server()
     c = Client()
@@ -223,10 +227,10 @@ def start_with_sentinel(s, scenario):
     return asyncio.create_task(s._start(scenario))
 
 
-async def send(c, body_type, channel, payload):
+async def send(c, body_type, payload):
     body = {
         'future': FUTURE_KEY,
-        'channel': id(channel),
+        'channel': CHANNEL_KEY,
         'payload': payload,
     }
     await c._send(body_type, body)
@@ -323,8 +327,8 @@ async def test_receives_closed(caplog, server_with_client):
         s, c = server_with_client
         await start_with_sentinel(s, DebugScenario.RECEIVE_BEFORE_CLEAN)
         await c.connection()
-        channel = s.open()
-        await send(s, 'closed', channel, 0)
+        s.open()
+        await send(s, 'closed', 0)
         await s.stop()
         await c.disconnection()
     assert caplog.records
@@ -334,14 +338,14 @@ async def test_echoes(server_with_client):
     s, c = server_with_client
     await start_with_sentinel(s, DebugScenario.RECEIVE_BEFORE_CLEAN)
     await c.connection()
-    channel = s.open()
-    await send(s, 'echo', channel, 1)
+    s.open()
+    await send(s, 'echo', 1)
     await s.stop()
     await c.disconnection()
     assert len(c.body) == 4
     assert c.body['type'] == 'result'
     assert c.body['payload'] == 1
-    assert c.body['channel'] == id(channel)
+    assert c.body['channel'] == CHANNEL_KEY
     assert c.body['future'] == FUTURE_KEY
 
 
@@ -349,14 +353,14 @@ async def test_calls(server_with_client):
     s, c = server_with_client
     await start_with_sentinel(s, DebugScenario.RECEIVE_BEFORE_CLEAN)
     await c.connection()
-    channel = s.open()
-    await send(s, 'call', channel, {'name': 'name', 'args': [0, 1]})
+    s.open()
+    await send(s, 'call', {'name': 'name', 'args': [0, 1]})
     await s.stop()
     await c.disconnection()
     assert len(c.body) == 4
     assert c.body['type'] == 'result'
     assert c.body['payload'] == [0, 1]
-    assert c.body['channel'] == id(channel)
+    assert c.body['channel'] == CHANNEL_KEY
     assert c.body['future'] == FUTURE_KEY
 
 
@@ -365,14 +369,14 @@ async def test_does_not_call(caplog, server_with_client):
         s, c = server_with_client
         await start_with_sentinel(s, DebugScenario.RECEIVE_BEFORE_CLEAN)
         await c.connection()
-        channel = s.open()
-        await send(s, 'call', channel, {'name': 'error', 'args': [0, 1]})
+        s.open()
+        await send(s, 'call', {'name': 'error', 'args': [0, 1]})
         await s.stop()
         await c.disconnection()
         assert len(c.body) == 4
         assert c.body['type'] == 'exception'
         assert isinstance(c.body['payload'], str)
-        assert c.body['channel'] == id(channel)
+        assert c.body['channel'] == CHANNEL_KEY
         assert c.body['future'] == FUTURE_KEY
     assert caplog.records
 
@@ -381,14 +385,14 @@ async def test_receives_unexpected_body_type(server_with_client):
     s, c = server_with_client
     await start_with_sentinel(s, DebugScenario.RECEIVE_BEFORE_CLEAN)
     await c.connection()
-    channel = s.open()
-    await send(s, 'type', channel, None)
+    s.open()
+    await send(s, 'type', None)
     await s.stop()
     await c.disconnection()
     assert len(c.body) == 4
     assert c.body['type'] == 'exception'
     assert isinstance(c.body['payload'], str)
-    assert c.body['channel'] == id(channel)
+    assert c.body['channel'] == CHANNEL_KEY
     assert c.body['future'] == FUTURE_KEY
 
 

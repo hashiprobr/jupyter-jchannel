@@ -114,9 +114,7 @@ class Server:
         self.channels = {}
 
     def open(self):
-        channel = Channel()
-        self.channels[id(channel)] = channel
-        return channel
+        Channel(self)
 
     def start(self):
         return asyncio.create_task(self._start())
@@ -299,33 +297,42 @@ class Server:
                         body = json.loads(message.data)
 
                         body['future']
-                        key = body['channel']
+                        channel_key = body['channel']
                         payload = body.pop('payload')
                         body_type = body.pop('type')
 
-                        if body_type == 'closed':
-                            logging.warning('Unexpected channel closure')
-                        else:
-                            channel = self.channels[key]
+                        match body_type:
+                            case 'closed':
+                                logging.warning('Unexpected channel closure')
+                            case 'exception':
+                                '''
+                                TODO
+                                '''
+                            case 'result':
+                                '''
+                                TODO
+                                '''
+                            case _:
+                                channel = self.channels[channel_key]
 
-                            try:
-                                match body_type:
-                                    case 'echo':
-                                        body_type = 'result'
-                                    case 'call':
-                                        payload = channel.handle_call(payload['name'], payload['args'])
-                                        body_type = 'result'
-                                    case _:
-                                        payload = f'Received unexpected body type {body_type}'
-                                        body_type = 'exception'
-                            except Exception:
-                                logging.exception('Caught handler exception')
+                                try:
+                                    match body_type:
+                                        case 'echo':
+                                            body_type = 'result'
+                                        case 'call':
+                                            payload = channel.handle_call(payload['name'], payload['args'])
+                                            body_type = 'result'
+                                        case _:
+                                            payload = f'Received unexpected body type {body_type}'
+                                            body_type = 'exception'
+                                except Exception:
+                                    logging.exception('Caught handler exception')
 
-                                payload = 'Check the notebook log for details'
-                                body_type = 'exception'
+                                    payload = 'Check the notebook log for details'
+                                    body_type = 'exception'
 
-                            body['payload'] = payload
-                            await self._accept(socket, body_type, body)
+                                body['payload'] = payload
+                                await self._accept(socket, body_type, body)
 
                         if __debug__:  # pragma: no cover
                             await self.sentinel.set_and_yield(DebugScenario.RECEIVE_BEFORE_CLEAN)
