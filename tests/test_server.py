@@ -11,6 +11,8 @@ HOST = 's'
 PORT = 0
 HEARTBEAT = 1
 
+FUTURE_KEY = 0
+
 
 pytestmark = pytest.mark.asyncio(scope='module')
 
@@ -170,11 +172,16 @@ class Client:
 
     async def _run(self):
         async with ClientSession() as session:
+            self.body = None
             async with session.ws_connect(f'ws://localhost:8889/socket') as socket:
                 self.connected.set()
                 async for message in socket:
                     body = json.loads(message.data)
                     match body['type']:
+                        case 'exception' | 'result':
+                            self.body = body
+                            await socket.close()
+                            break
                         case 'close':
                             await socket.close()
                             break
@@ -187,8 +194,18 @@ class Client:
         self.disconnected.set()
 
 
+class MockChannel:
+    def handle_call(self, name, args):
+        if name == 'error':
+            raise Exception
+        return args
+
+
 @pytest.fixture
 def server_with_client(mocker):
+    Channel = mocker.patch('jchannel.server.Channel')
+    Channel.return_value = MockChannel()
+
     s = Server()
     c = Client()
 
@@ -204,6 +221,15 @@ def server_with_client(mocker):
 
 def start_with_sentinel(s, scenario):
     return asyncio.create_task(s._start(scenario))
+
+
+async def send(c, body_type, channel, payload):
+    body = {
+        'future': FUTURE_KEY,
+        'channel': id(channel),
+        'payload': payload,
+    }
+    await c._send(body_type, body)
 
 
 async def test_connects_disconnects_does_not_stop_and_stops(caplog, server_with_client):
@@ -259,21 +285,10 @@ async def test_breaks_does_not_connect_and_cleans(server_with_client):
     await c.disconnection()
 
 
-async def test_receives_unexpected_body_type(caplog, server_with_client):
-    with caplog.at_level(logging.ERROR):
-        s, c = server_with_client
-        await start_with_sentinel(s, DebugScenario.RECEIVE_BEFORE_CLEAN)
-        await c.connection()
-        await s._send('error')
-        await s.stop()
-        await c.disconnection()
-    assert caplog.records
-
-
 async def test_receives_unexpected_message_type(caplog, server_with_client):
     with caplog.at_level(logging.ERROR):
         s, c = server_with_client
-        await start_with_sentinel(s, DebugScenario.RECEIVE_BEFORE_CLEAN)
+        await start_with_sentinel(s, DebugScenario.CATCH_BEFORE_CLEAN)
         await c.connection()
         await s._send('bytes')
         await s.stop()
@@ -281,7 +296,7 @@ async def test_receives_unexpected_message_type(caplog, server_with_client):
     assert caplog.records
 
 
-async def test_catches_unexpected_exception(caplog, server_with_client):
+async def test_receives_empty_message(caplog, server_with_client):
     with caplog.at_level(logging.ERROR):
         s, c = server_with_client
         await start_with_sentinel(s, DebugScenario.CATCH_BEFORE_CLEAN)
@@ -290,6 +305,91 @@ async def test_catches_unexpected_exception(caplog, server_with_client):
         await s.stop()
         await c.disconnection()
     assert caplog.records
+
+
+async def test_receives_empty_body(caplog, server_with_client):
+    with caplog.at_level(logging.ERROR):
+        s, c = server_with_client
+        await start_with_sentinel(s, DebugScenario.CATCH_BEFORE_CLEAN)
+        await c.connection()
+        await s._send('open')
+        await s.stop()
+        await c.disconnection()
+    assert caplog.records
+
+
+async def test_receives_closed(caplog, server_with_client):
+    with caplog.at_level(logging.WARNING):
+        s, c = server_with_client
+        await start_with_sentinel(s, DebugScenario.RECEIVE_BEFORE_CLEAN)
+        await c.connection()
+        channel = s.open()
+        await send(s, 'closed', channel, 0)
+        await s.stop()
+        await c.disconnection()
+    assert caplog.records
+
+
+async def test_echoes(server_with_client):
+    s, c = server_with_client
+    await start_with_sentinel(s, DebugScenario.RECEIVE_BEFORE_CLEAN)
+    await c.connection()
+    channel = s.open()
+    await send(s, 'echo', channel, 1)
+    await s.stop()
+    await c.disconnection()
+    assert len(c.body) == 4
+    assert c.body['type'] == 'result'
+    assert c.body['payload'] == 1
+    assert c.body['channel'] == id(channel)
+    assert c.body['future'] == FUTURE_KEY
+
+
+async def test_calls(server_with_client):
+    s, c = server_with_client
+    await start_with_sentinel(s, DebugScenario.RECEIVE_BEFORE_CLEAN)
+    await c.connection()
+    channel = s.open()
+    await send(s, 'call', channel, {'name': 'name', 'args': [0, 1]})
+    await s.stop()
+    await c.disconnection()
+    assert len(c.body) == 4
+    assert c.body['type'] == 'result'
+    assert c.body['payload'] == [0, 1]
+    assert c.body['channel'] == id(channel)
+    assert c.body['future'] == FUTURE_KEY
+
+
+async def test_does_not_call(caplog, server_with_client):
+    with caplog.at_level(logging.ERROR):
+        s, c = server_with_client
+        await start_with_sentinel(s, DebugScenario.RECEIVE_BEFORE_CLEAN)
+        await c.connection()
+        channel = s.open()
+        await send(s, 'call', channel, {'name': 'error', 'args': [0, 1]})
+        await s.stop()
+        await c.disconnection()
+        assert len(c.body) == 4
+        assert c.body['type'] == 'exception'
+        assert isinstance(c.body['payload'], str)
+        assert c.body['channel'] == id(channel)
+        assert c.body['future'] == FUTURE_KEY
+    assert caplog.records
+
+
+async def test_receives_unexpected_body_type(server_with_client):
+    s, c = server_with_client
+    await start_with_sentinel(s, DebugScenario.RECEIVE_BEFORE_CLEAN)
+    await c.connection()
+    channel = s.open()
+    await send(s, 'type', channel, None)
+    await s.stop()
+    await c.disconnection()
+    assert len(c.body) == 4
+    assert c.body['type'] == 'exception'
+    assert isinstance(c.body['payload'], str)
+    assert c.body['channel'] == id(channel)
+    assert c.body['future'] == FUTURE_KEY
 
 
 async def test_connects_disconnects_and_stops(server_with_client):

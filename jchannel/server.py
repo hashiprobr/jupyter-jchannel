@@ -5,6 +5,7 @@ import logging
 from enum import Enum, auto
 from aiohttp import web, WSMsgType
 from jchannel.frontend import frontend
+from jchannel.channel import Channel
 
 
 class StateError(Exception):
@@ -99,9 +100,6 @@ class Server:
         self.heartbeat = heartbeat
         self.cleaned = None
 
-        if __debug__:  # pragma: no cover
-            self.sentinel = DebugSentinel()
-
         # None: user stoppage
         # web.WebSocketResponse: client connection
         self.connection = None
@@ -109,6 +107,16 @@ class Server:
         # False: user stoppage
         # True: client disconnection
         self.disconnection = None
+
+        if __debug__:  # pragma: no cover
+            self.sentinel = DebugSentinel()
+
+        self.channels = {}
+
+    def open(self):
+        channel = Channel()
+        self.channels[id(channel)] = channel
+        return channel
 
     def start(self):
         return asyncio.create_task(self._start())
@@ -128,12 +136,12 @@ class Server:
         if self.cleaned is None:
             self.cleaned = asyncio.Event()
 
-            if __debug__:  # pragma: no cover
-                self.sentinel.enable(scenario)
-
             loop = asyncio.get_running_loop()
             self.connection = loop.create_future()
             self.disconnection = loop.create_future()
+
+            if __debug__:  # pragma: no cover
+                self.sentinel.enable(scenario)
 
             app = web.Application()
 
@@ -228,6 +236,13 @@ class Server:
 
         return socket
 
+    async def _accept(self, socket, body_type, body):
+        body['type'] = body_type
+
+        data = json.dumps(body)
+
+        await socket.send_str(data)
+
     async def _send(self, body_type, body={}, timeout=3):
         try:
             if self.connection is None:
@@ -244,10 +259,7 @@ class Server:
             if not socket.prepared:
                 raise StateError('Server not prepared')
 
-            body['type'] = body_type
-            data = json.dumps(body)
-
-            await socket.send_str(data)
+            await self._accept(socket, body_type, body)
         finally:
             if __debug__:  # pragma: no cover
                 await self.sentinel.set_and_yield(DebugScenario.SEND_BEFORE_PREPARE)
@@ -281,15 +293,39 @@ class Server:
 
                 try:
                     async for message in socket:
-                        if message.type == WSMsgType.TEXT:
-                            body = json.loads(message.data)
-                            body_type = body.pop('type')
+                        if message.type != WSMsgType.TEXT:
+                            raise TypeError(f'Received unexpected message type {message.type}')
 
-                            match body_type:
-                                case _:
-                                    logging.error(f'Received unexpected body type {body_type}')
+                        body = json.loads(message.data)
+
+                        body['future']
+                        key = body['channel']
+                        payload = body.pop('payload')
+                        body_type = body.pop('type')
+
+                        if body_type == 'closed':
+                            logging.warning('Unexpected channel closure')
                         else:
-                            logging.error(f'Received unexpected message type {message.type}')
+                            channel = self.channels[key]
+
+                            try:
+                                match body_type:
+                                    case 'echo':
+                                        body_type = 'result'
+                                    case 'call':
+                                        payload = channel.handle_call(payload['name'], payload['args'])
+                                        body_type = 'result'
+                                    case _:
+                                        payload = f'Received unexpected body type {body_type}'
+                                        body_type = 'exception'
+                            except Exception:
+                                logging.exception('Caught handler exception')
+
+                                payload = 'Check the notebook log for details'
+                                body_type = 'exception'
+
+                            body['payload'] = payload
+                            await self._accept(socket, body_type, body)
 
                         if __debug__:  # pragma: no cover
                             await self.sentinel.set_and_yield(DebugScenario.RECEIVE_BEFORE_CLEAN)
