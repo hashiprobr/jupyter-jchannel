@@ -3,6 +3,7 @@ import asyncio
 import logging
 
 from enum import Enum, auto
+from inspect import isawaitable
 from aiohttp import web, WSMsgType
 from jchannel.frontend import frontend
 from jchannel.channel import Channel
@@ -320,7 +321,9 @@ class Server:
                                         case 'echo':
                                             body_type = 'result'
                                         case 'call':
-                                            payload = await channel.handle_call(payload['name'], payload['args'])
+                                            payload = channel.handle_call(payload['name'], payload['args'])
+                                            if isawaitable(payload):
+                                                payload = await payload
                                             body_type = 'result'
                                         case _:
                                             payload = f'Received unexpected body type {body_type}'

@@ -160,6 +160,15 @@ async def test_starts_stops_and_does_not_send(s):
 
 
 class Client:
+    def dumps(self, body_type, payload):
+        body = {
+            'future': FUTURE_KEY,
+            'channel': CHANNEL_KEY,
+            'payload': payload,
+        }
+        body['type'] = body_type
+        return json.dumps(body)
+
     async def start(self):
         self.connected = asyncio.Event()
         self.disconnected = asyncio.Event()
@@ -183,15 +192,21 @@ class Client:
                             self.body = body
                             await socket.close()
                             break
-                        case 'close':
+                        case 'socket-close':
                             await socket.close()
                             break
-                        case 'bytes':
+                        case 'socket-bytes':
                             await socket.send_bytes(b'')
                         case 'empty-message':
                             await socket.send_str('')
                         case 'empty-body':
                             await socket.send_str('{}')
+                        case 'mock-closed':
+                            await socket.send_str(self.dumps('closed', None))
+                        case 'mock-exception':
+                            await socket.send_str(self.dumps('exception', ''))
+                        case 'mock-result':
+                            await socket.send_str(self.dumps('result', 0))
                         case _:
                             await socket.send_str(message.data)
         self.disconnected.set()
@@ -201,9 +216,14 @@ class MockChannel:
     def __init__(self, server):
         server.channels[CHANNEL_KEY] = self
 
-    async def handle_call(self, name, args):
+    def handle_call(self, name, args):
         if name == 'error':
             raise Exception
+        if name == 'async':
+            return self.wrap(args)
+        return args
+
+    async def wrap(self, args):
         return args
 
 
@@ -243,7 +263,7 @@ async def test_connects_disconnects_does_not_stop_and_stops(caplog, server_with_
         s, c = server_with_client
         await start_with_sentinel(s, DebugScenario.STOP_BEFORE_RESTART)
         await c.connection()
-        await s._send('close')
+        await s._send('socket-close')
         await c.disconnection()
         with pytest.raises(StateError):
             await s.stop()
@@ -296,7 +316,7 @@ async def test_receives_unexpected_message_type(caplog, server_with_client):
         s, c = server_with_client
         await start_with_sentinel(s, DebugScenario.CATCH_BEFORE_CLEAN)
         await c.connection()
-        await s._send('bytes')
+        await s._send('socket-bytes')
         await s.stop()
         await c.disconnection()
     assert caplog.records
@@ -366,7 +386,22 @@ async def test_calls(server_with_client):
     assert c.body['future'] == FUTURE_KEY
 
 
-async def test_does_not_call(caplog, server_with_client):
+async def test_calls_async(server_with_client):
+    s, c = server_with_client
+    await start_with_sentinel(s, DebugScenario.RECEIVE_BEFORE_CLEAN)
+    await c.connection()
+    s.open()
+    await send(s, 'call', {'name': 'async', 'args': [0, 1]})
+    await s.stop()
+    await c.disconnection()
+    assert len(c.body) == 4
+    assert c.body['type'] == 'result'
+    assert c.body['payload'] == [0, 1]
+    assert c.body['channel'] == CHANNEL_KEY
+    assert c.body['future'] == FUTURE_KEY
+
+
+async def test_calls_error(caplog, server_with_client):
     with caplog.at_level(logging.ERROR):
         s, c = server_with_client
         await start_with_sentinel(s, DebugScenario.RECEIVE_BEFORE_CLEAN)
@@ -402,7 +437,7 @@ async def test_connects_disconnects_and_stops(server_with_client):
     s, c = server_with_client
     await start_with_sentinel(s, DebugScenario.DISCONNECT_AFTER_STOP)
     await c.connection()
-    await s._send('close')
+    await s._send('socket-close')
     await c.disconnection()
     await s.stop()
 
