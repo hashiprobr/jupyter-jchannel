@@ -117,6 +117,9 @@ class Server:
     def open(self):
         Channel(self)
 
+    def load(self):
+        frontend.run(f"jchannel.start('{self.url}')")
+
     def start(self):
         return asyncio.create_task(self._start())
 
@@ -160,9 +163,9 @@ class Server:
             site = web.TCPSite(runner, self.host, self.port)
             await site.start()
 
-            frontend.run(f"jchannel.start('{self.url}')")
-
             asyncio.create_task(self._run(runner, site))
+
+            self.load()
 
     async def _stop(self):
         if __debug__:  # pragma: no cover
@@ -247,6 +250,8 @@ class Server:
             if self.connection is None:
                 socket = None
             else:
+                self.load()
+
                 try:
                     socket = await asyncio.wait_for(self.connection, timeout)
                 except asyncio.TimeoutError:

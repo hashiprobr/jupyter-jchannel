@@ -160,7 +160,10 @@ async def test_starts_stops_and_does_not_send(s):
 
 
 class Client:
-    def dumps(self, body_type, payload):
+    def __init__(self):
+        self.stopped = True
+
+    def _dumps(self, body_type, payload):
         body = {
             'future': FUTURE_KEY,
             'channel': CHANNEL_KEY,
@@ -170,9 +173,11 @@ class Client:
         return json.dumps(body)
 
     async def start(self):
-        self.connected = asyncio.Event()
-        self.disconnected = asyncio.Event()
-        asyncio.create_task(self._run())
+        if self.stopped:
+            self.stopped = False
+            self.connected = asyncio.Event()
+            self.disconnected = asyncio.Event()
+            asyncio.create_task(self._run())
 
     async def connection(self):
         await self.connected.wait()
@@ -202,11 +207,11 @@ class Client:
                         case 'empty-body':
                             await socket.send_str('{}')
                         case 'mock-closed':
-                            await socket.send_str(self.dumps('closed', None))
+                            await socket.send_str(self._dumps('closed', None))
                         case 'mock-exception':
-                            await socket.send_str(self.dumps('exception', ''))
+                            await socket.send_str(self._dumps('exception', ''))
                         case 'mock-result':
-                            await socket.send_str(self.dumps('result', '0'))
+                            await socket.send_str(self._dumps('result', '0'))
                         case _:
                             await socket.send_str(message.data)
         self.disconnected.set()
