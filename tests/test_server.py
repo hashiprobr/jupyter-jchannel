@@ -142,20 +142,20 @@ async def test_starts_and_stops_twice(s):
 
 async def test_does_not_send(s):
     with pytest.raises(StateError):
-        await s._send('')
+        await send(s, '')
 
 
 async def test_starts_does_not_send_and_stops(s):
     with pytest.raises(StateError):
         async with s as target:
-            await target._send('', timeout=0)
+            await send(target, '', timeout=0)
 
 
 async def test_starts_stops_and_does_not_send(s):
     await s.start()
     task = s.stop()
     with pytest.raises(StateError):
-        await s._send('')
+        await send(s, '')
     await task
 
 
@@ -240,12 +240,18 @@ def server_with_client(mocker):
     s = Server()
     c = Client()
 
-    def side_effect(code):
+    def frontend_side_effect(code):
         assert code == "jchannel.start('ws://localhost:8889')"
         asyncio.create_task(c.start())
 
     frontend = mocker.patch('jchannel.server.frontend')
-    frontend.run.side_effect = side_effect
+    frontend.run.side_effect = frontend_side_effect
+
+    def registry_side_effect(future):
+        return FUTURE_KEY
+
+    registry = mocker.patch('jchannel.server.registry')
+    registry.store.side_effect = registry_side_effect
 
     return s, c
 
@@ -254,13 +260,8 @@ def start_with_sentinel(s, scenario):
     return asyncio.create_task(s._start(scenario))
 
 
-async def send(c, body_type, input):
-    body = {
-        'future': FUTURE_KEY,
-        'channel': CHANNEL_KEY,
-        'payload': json.dumps(input),
-    }
-    await c._send(body_type, body)
+async def send(c, body_type, input=None, timeout=3):
+    await c._send(body_type, input, CHANNEL_KEY, timeout)
 
 
 async def test_connects_disconnects_does_not_stop_and_stops(caplog, server_with_client):
@@ -268,7 +269,7 @@ async def test_connects_disconnects_does_not_stop_and_stops(caplog, server_with_
         s, c = server_with_client
         await start_with_sentinel(s, DebugScenario.STOP_BEFORE_RESTART)
         await c.connection()
-        await s._send('socket-close')
+        await send(s, 'socket-close')
         await c.disconnection()
         with pytest.raises(StateError):
             await s.stop()
@@ -321,7 +322,7 @@ async def test_receives_unexpected_message_type(caplog, server_with_client):
         s, c = server_with_client
         await start_with_sentinel(s, DebugScenario.CATCH_BEFORE_CLEAN)
         await c.connection()
-        await s._send('socket-bytes')
+        await send(s, 'socket-bytes')
         await s.stop()
         await c.disconnection()
     assert caplog.records
@@ -332,7 +333,7 @@ async def test_receives_empty_message(caplog, server_with_client):
         s, c = server_with_client
         await start_with_sentinel(s, DebugScenario.CATCH_BEFORE_CLEAN)
         await c.connection()
-        await s._send('empty-message')
+        await send(s, 'empty-message')
         await s.stop()
         await c.disconnection()
     assert caplog.records
@@ -343,7 +344,7 @@ async def test_receives_empty_body(caplog, server_with_client):
         s, c = server_with_client
         await start_with_sentinel(s, DebugScenario.CATCH_BEFORE_CLEAN)
         await c.connection()
-        await s._send('empty-body')
+        await send(s, 'empty-body')
         await s.stop()
         await c.disconnection()
     assert caplog.records
@@ -442,7 +443,7 @@ async def test_connects_disconnects_and_stops(server_with_client):
     s, c = server_with_client
     await start_with_sentinel(s, DebugScenario.DISCONNECT_AFTER_STOP)
     await c.connection()
-    await s._send('socket-close')
+    await send(s, 'socket-close')
     await c.disconnection()
     await s.stop()
 
@@ -451,7 +452,7 @@ async def test_does_not_send_connects_and_stops(server_with_client):
     s, c = server_with_client
     await start_with_sentinel(s, DebugScenario.SEND_BEFORE_PREPARE)
     with pytest.raises(StateError):
-        await s._send('')
+        await send(s, '')
     await c.connection()
     await s.stop()
     await c.disconnection()

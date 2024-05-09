@@ -5,6 +5,7 @@ import logging
 from enum import Enum, auto
 from inspect import isawaitable
 from aiohttp import web, WSMsgType
+from jchannel.registry import registry
 from jchannel.frontend import frontend
 from jchannel.channel import Channel
 
@@ -245,7 +246,7 @@ class Server:
 
         await socket.send_str(data)
 
-    async def _send(self, body_type, body={}, timeout=3):
+    async def _send(self, body_type, input, channel_key, timeout):
         try:
             if self.connection is None:
                 socket = None
@@ -262,6 +263,17 @@ class Server:
 
             if not socket.prepared:
                 raise StateError('Server not prepared')
+
+            payload = json.dumps(input)
+
+            loop = asyncio.get_running_loop()
+            future = loop.create_future()
+
+            body = {
+                'future': registry.store(future),
+                'channel': channel_key,
+                'payload': payload,
+            }
 
             await self._accept(socket, body_type, body)
         finally:
@@ -343,6 +355,7 @@ class Server:
                                     body_type = 'exception'
 
                                 body['payload'] = payload
+
                                 await self._accept(socket, body_type, body)
 
                         if __debug__:  # pragma: no cover
