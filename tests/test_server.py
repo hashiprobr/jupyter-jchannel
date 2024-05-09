@@ -3,8 +3,9 @@ import asyncio
 import logging
 import pytest
 
+from unittest.mock import Mock
 from aiohttp import ClientSession
-from jchannel.server import Server, StateError, DebugScenario
+from jchannel.server import Server, StateError, JavascriptError, DebugScenario
 
 
 HOST = 's'
@@ -206,8 +207,6 @@ class Client:
                             await socket.send_str('')
                         case 'empty-body':
                             await socket.send_str('{}')
-                        case 'mock-closed':
-                            await socket.send_str(self._dumps('closed', None))
                         case 'mock-exception':
                             await socket.send_str(self._dumps('exception', ''))
                         case 'mock-result':
@@ -233,25 +232,28 @@ class MockChannel:
 
 
 @pytest.fixture
-def server_with_client(mocker):
+def mock_future():
+    return Mock()
+
+
+@pytest.fixture
+def server_with_client(mocker, mock_future):
     Channel = mocker.patch('jchannel.server.Channel')
     Channel.side_effect = MockChannel
 
     s = Server()
     c = Client()
 
-    def frontend_side_effect(code):
+    def side_effect(code):
         assert code == "jchannel.start('ws://localhost:8889')"
         asyncio.create_task(c.start())
 
     frontend = mocker.patch('jchannel.server.frontend')
-    frontend.run.side_effect = frontend_side_effect
-
-    def registry_side_effect(future):
-        return FUTURE_KEY
+    frontend.run.side_effect = side_effect
 
     registry = mocker.patch('jchannel.server.registry')
-    registry.store.side_effect = registry_side_effect
+    registry.store.side_effect = lambda f: FUTURE_KEY
+    registry.retrieve.side_effect = lambda k: mock_future
 
     return s, c
 
@@ -350,16 +352,42 @@ async def test_receives_empty_body(caplog, server_with_client):
     assert caplog.records
 
 
-async def test_receives_closed(caplog, server_with_client):
+async def test_receives_closed(caplog, mock_future, server_with_client):
     with caplog.at_level(logging.WARNING):
         s, c = server_with_client
         await start_with_sentinel(s, DebugScenario.RECEIVE_BEFORE_CLEAN)
         await c.connection()
-        s.open()
-        await send(s, 'closed', 0)
+        await send(s, 'closed')
         await s.stop()
         await c.disconnection()
+        mock_future.set_exception.assert_called_with(StateError)
     assert caplog.records
+
+
+async def test_receives_exception(mock_future, server_with_client):
+    s, c = server_with_client
+    await start_with_sentinel(s, DebugScenario.RECEIVE_BEFORE_CLEAN)
+    await c.connection()
+    await send(s, 'mock-exception')
+    await s.stop()
+    await c.disconnection()
+    args, _ = mock_future.set_exception.call_args
+    error, = args
+    assert isinstance(error, JavascriptError)
+    message, = error.args
+    assert isinstance(message, str)
+
+
+async def test_receives_result(mock_future, server_with_client):
+    s, c = server_with_client
+    await start_with_sentinel(s, DebugScenario.RECEIVE_BEFORE_CLEAN)
+    await c.connection()
+    await send(s, 'mock-result')
+    await s.stop()
+    await c.disconnection()
+    args, _ = mock_future.set_result.call_args
+    output, = args
+    assert output == 0
 
 
 async def test_echoes(server_with_client):

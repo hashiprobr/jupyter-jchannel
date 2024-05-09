@@ -14,6 +14,10 @@ class StateError(Exception):
     pass
 
 
+class JavascriptError(Exception):
+    pass
+
+
 class DebugScenario(Enum):
     STOP_BEFORE_RESTART = auto()
     STOP_AFTER_BREAK = auto()
@@ -314,7 +318,7 @@ class Server:
 
                         body = json.loads(message.data)
 
-                        body['future']
+                        future_key = body['future']
                         channel_key = body['channel']
                         payload = body.pop('payload')
                         body_type = body.pop('type')
@@ -322,14 +326,17 @@ class Server:
                         match body_type:
                             case 'closed':
                                 logging.warning('Unexpected channel closure')
+
+                                future = registry.retrieve(future_key)
+                                future.set_exception(StateError)
                             case 'exception':
-                                '''
-                                TODO
-                                '''
+                                future = registry.retrieve(future_key)
+                                future.set_exception(JavascriptError(payload))
                             case 'result':
-                                '''
-                                TODO
-                                '''
+                                output = json.loads(payload)
+
+                                future = registry.retrieve(future_key)
+                                future.set_result(output)
                             case _:
                                 input = json.loads(payload)
 
