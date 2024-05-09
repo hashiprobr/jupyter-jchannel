@@ -22,7 +22,7 @@ jobs:
         pipx upgrade poetry
 
     - name: Checkout
-      uses: actions/checkout@v4.1.1
+      uses: actions/checkout@v4.1.5
 
     - name: Install
       run: poetry install
@@ -31,4 +31,4 @@ jobs:
       run: poetry run tests --coverage
 
     - name: Coveralls GitHub Action
-      uses: coverallsapp/github-action@v2.2.3
+      uses: coverallsapp/github-action@v2.3.0
