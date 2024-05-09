@@ -160,11 +160,11 @@ async def test_starts_stops_and_does_not_send(s):
 
 
 class Client:
-    def dumps(self, body_type, input):
+    def dumps(self, body_type, payload):
         body = {
             'future': FUTURE_KEY,
             'channel': CHANNEL_KEY,
-            'payload': json.dumps(input),
+            'payload': payload,
         }
         body['type'] = body_type
         return json.dumps(body)
@@ -206,7 +206,7 @@ class Client:
                         case 'mock-exception':
                             await socket.send_str(self.dumps('exception', ''))
                         case 'mock-result':
-                            await socket.send_str(self.dumps('result', 0))
+                            await socket.send_str(self.dumps('result', '0'))
                         case _:
                             await socket.send_str(message.data)
         self.disconnected.set()
@@ -220,10 +220,10 @@ class MockChannel:
         if name == 'error':
             raise Exception
         if name == 'async':
-            return self.wrap(args)
+            return self.resolve(args)
         return args
 
-    async def wrap(self, args):
+    async def resolve(self, args):
         return args
 
 
