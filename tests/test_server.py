@@ -160,11 +160,11 @@ async def test_starts_stops_and_does_not_send(s):
 
 
 class Client:
-    def dumps(self, body_type, payload):
+    def dumps(self, body_type, input):
         body = {
             'future': FUTURE_KEY,
             'channel': CHANNEL_KEY,
-            'payload': payload,
+            'payload': json.dumps(input),
         }
         body['type'] = body_type
         return json.dumps(body)
@@ -249,11 +249,11 @@ def start_with_sentinel(s, scenario):
     return asyncio.create_task(s._start(scenario))
 
 
-async def send(c, body_type, payload):
+async def send(c, body_type, input):
     body = {
         'future': FUTURE_KEY,
         'channel': CHANNEL_KEY,
-        'payload': payload,
+        'payload': json.dumps(input),
     }
     await c._send(body_type, body)
 
@@ -366,7 +366,7 @@ async def test_echoes(server_with_client):
     await c.disconnection()
     assert len(c.body) == 4
     assert c.body['type'] == 'result'
-    assert c.body['payload'] == 1
+    assert c.body['payload'] == '1'
     assert c.body['channel'] == CHANNEL_KEY
     assert c.body['future'] == FUTURE_KEY
 
@@ -381,7 +381,7 @@ async def test_calls(server_with_client):
     await c.disconnection()
     assert len(c.body) == 4
     assert c.body['type'] == 'result'
-    assert c.body['payload'] == [0, 1]
+    assert c.body['payload'] == '[0, 1]'
     assert c.body['channel'] == CHANNEL_KEY
     assert c.body['future'] == FUTURE_KEY
 
@@ -396,7 +396,7 @@ async def test_calls_async(server_with_client):
     await c.disconnection()
     assert len(c.body) == 4
     assert c.body['type'] == 'result'
-    assert c.body['payload'] == [0, 1]
+    assert c.body['payload'] == '[0, 1]'
     assert c.body['channel'] == CHANNEL_KEY
     assert c.body['future'] == FUTURE_KEY
 

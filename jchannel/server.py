@@ -314,6 +314,8 @@ class Server:
                                 TODO
                                 '''
                             case _:
+                                input = json.loads(payload)
+
                                 channel = self.channels[channel_key]
 
                                 try:
@@ -321,9 +323,10 @@ class Server:
                                         case 'echo':
                                             body_type = 'result'
                                         case 'call':
-                                            payload = channel.handle_call(payload['name'], payload['args'])
-                                            if isawaitable(payload):
-                                                payload = await payload
+                                            output = channel.handle_call(input['name'], input['args'])
+                                            if isawaitable(output):
+                                                output = await output
+                                            payload = json.dumps(output)
                                             body_type = 'result'
                                         case _:
                                             payload = f'Received unexpected body type {body_type}'
