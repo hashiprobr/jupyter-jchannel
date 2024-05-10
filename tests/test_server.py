@@ -410,12 +410,12 @@ async def test_calls(server_with_client):
     await start_with_sentinel(s, DebugScenario.RECEIVE_BEFORE_CLEAN)
     await c.connection()
     s.open()
-    await send(s, 'call', {'name': 'name', 'args': [1, 2]})
+    await send(s, 'call', {'name': 'name', 'args': [2, 3]})
     await s.stop()
     await c.disconnection()
     assert len(c.body) == 4
     assert c.body['type'] == 'result'
-    assert c.body['payload'] == '[1, 2]'
+    assert c.body['payload'] == '[2, 3]'
     assert c.body['channel'] == CHANNEL_KEY
     assert c.body['future'] == FUTURE_KEY
 
@@ -425,12 +425,12 @@ async def test_calls_async(server_with_client):
     await start_with_sentinel(s, DebugScenario.RECEIVE_BEFORE_CLEAN)
     await c.connection()
     s.open()
-    await send(s, 'call', {'name': 'async', 'args': [1, 2]})
+    await send(s, 'call', {'name': 'async', 'args': [2, 3]})
     await s.stop()
     await c.disconnection()
     assert len(c.body) == 4
     assert c.body['type'] == 'result'
-    assert c.body['payload'] == '[1, 2]'
+    assert c.body['payload'] == '[2, 3]'
     assert c.body['channel'] == CHANNEL_KEY
     assert c.body['future'] == FUTURE_KEY
 
@@ -441,7 +441,7 @@ async def test_calls_error(caplog, server_with_client):
         await start_with_sentinel(s, DebugScenario.RECEIVE_BEFORE_CLEAN)
         await c.connection()
         s.open()
-        await send(s, 'call', {'name': 'error', 'args': [1, 2]})
+        await send(s, 'call', {'name': 'error', 'args': [2, 3]})
         await s.stop()
         await c.disconnection()
         assert len(c.body) == 4
