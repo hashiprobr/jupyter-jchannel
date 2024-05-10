@@ -12,7 +12,7 @@ class Channel:
 
     def _handle_call(self, name, args):
         method = self._method(name)
-        print(method, args)
+
         return method(*args)
 
     def _method(self, name):
