@@ -349,7 +349,7 @@ class Server:
                                         case 'echo':
                                             body_type = 'result'
                                         case 'call':
-                                            output = channel.handle_call(input['name'], input['args'])
+                                            output = channel._handle_call(input['name'], input['args'])
                                             if isawaitable(output):
                                                 output = await output
                                             payload = json.dumps(output)
