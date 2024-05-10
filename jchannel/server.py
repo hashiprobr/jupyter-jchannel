@@ -280,6 +280,8 @@ class Server:
             }
 
             await self._accept(socket, body_type, body)
+
+            return future
         finally:
             if __debug__:  # pragma: no cover
                 await self.sentinel.set_and_yield(DebugScenario.SEND_BEFORE_PREPARE)

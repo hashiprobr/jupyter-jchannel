@@ -125,6 +125,10 @@ def s(mocker):
     return Server()
 
 
+async def send(s, body_type, input=None, timeout=3):
+    await s._send(body_type, input, CHANNEL_KEY, timeout)
+
+
 async def test_stops(s):
     await s.stop()
 
@@ -260,10 +264,6 @@ def server_with_client(mocker, mock_future):
 
 def start_with_sentinel(s, scenario):
     return asyncio.create_task(s._start(scenario))
-
-
-async def send(c, body_type, input=None, timeout=3):
-    await c._send(body_type, input, CHANNEL_KEY, timeout)
 
 
 async def test_connects_disconnects_does_not_stop_and_stops(caplog, server_with_client):
