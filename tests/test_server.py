@@ -164,6 +164,13 @@ class Client:
     def __init__(self):
         self.stopped = True
 
+    def start(self):
+        if self.stopped:
+            self.stopped = False
+            self.connected = asyncio.Event()
+            self.disconnected = asyncio.Event()
+            asyncio.create_task(self._run())
+
     def _dumps(self, body_type, payload):
         body = {
             'future': FUTURE_KEY,
@@ -172,13 +179,6 @@ class Client:
         }
         body['type'] = body_type
         return json.dumps(body)
-
-    async def start(self):
-        if self.stopped:
-            self.stopped = False
-            self.connected = asyncio.Event()
-            self.disconnected = asyncio.Event()
-            asyncio.create_task(self._run())
 
     async def connection(self):
         await self.connected.wait()
@@ -246,7 +246,7 @@ def server_with_client(mocker, mock_future):
 
     def side_effect(code):
         assert code == "jchannel.start('ws://localhost:8889')"
-        asyncio.create_task(c.start())
+        c.start()
 
     frontend = mocker.patch('jchannel.server.frontend')
     frontend.run.side_effect = side_effect
@@ -302,7 +302,7 @@ async def test_connects_does_not_connect_and_stops(caplog, server_with_client):
         s, c_0 = server_with_client
         c_1 = Client()
         await s.start()
-        await c_1.start()
+        c_1.start()
         await c_0.connection()
         await c_1.connection()
         await s.stop()
@@ -457,7 +457,7 @@ async def test_receives_unexpected_body_type(server_with_client):
     await start_with_sentinel(s, DebugScenario.RECEIVE_BEFORE_CLEAN)
     await c.connection()
     s.open()
-    await send(s, 'type', None)
+    await send(s, 'type')
     await s.stop()
     await c.disconnection()
     assert len(c.body) == 4
