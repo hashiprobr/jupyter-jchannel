@@ -10,5 +10,11 @@ class Registry:
     def retrieve(self, key):
         return self.futures.pop(key)
 
+    def clear(self):
+        keys = list(self.futures.keys())
+        for key in keys:
+            self.futures[key].cancel('Client disconnected')
+            del self.futures[key]
+
 
 registry = Registry()
