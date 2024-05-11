@@ -119,17 +119,19 @@ class Server:
 
         self.channels = {}
 
-    def open(self):
-        Channel(self)
-
-    def load(self):
-        frontend.run(f"jchannel.start('{self.url}')")
-
     def start(self):
         return asyncio.create_task(self._start())
 
     def stop(self):
         return asyncio.create_task(self._stop())
+
+    def load(self):
+        frontend.run(f"jchannel.start('{self.url}')")
+
+    def open(self, code):
+        channel = Channel(self, code)
+        channel.open()
+        return channel
 
     async def __aenter__(self):
         await self._start()
@@ -352,6 +354,7 @@ class Server:
                                             output = channel._handle_call(input['name'], input['args'])
                                             if isawaitable(output):
                                                 output = await output
+
                                             payload = json.dumps(output)
                                             body_type = 'result'
                                         case _:

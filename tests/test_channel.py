@@ -1,38 +1,39 @@
 import asyncio
 import pytest
 
-from unittest.mock import Mock
 from jchannel.channel import Channel
 
 
 pytestmark = pytest.mark.asyncio(scope='module')
 
 
-@pytest.fixture
-def server(mocker):
-    mock = Mock()
+class Server:
+    def __init__(self):
+        self.channels = {}
 
-    mocker.patch.object(mock, 'channels', {})
-
-    async def side_effect(body_type, input, channel_key, timeout):
+    async def _send(self, body_type, input, channel_key, timeout):
+        if body_type == 'error':
+            raise Exception
         loop = asyncio.get_running_loop()
         future = loop.create_future()
         future.set_result([body_type, input, channel_key, timeout])
         return future
 
-    mock._send.side_effect = side_effect
 
-    return mock
+@pytest.fixture
+def server():
+    return Server()
 
 
 @pytest.fixture
 def c(server):
-    return Channel(server)
+    return Channel(server, 'code')
 
 
 async def test_instantiates(server, c):
     assert server.channels[id(c)] == c
     assert c.server == server
+    assert c.code == 'code'
     assert c.handler is None
 
 
@@ -84,6 +85,16 @@ async def test_does_not_handle_call_without_callable_handler_attribute(c):
         c._handle_call('name', [2, 3])
 
 
+async def test_opens(c):
+    output = ['open', 'code', id(c), 3]
+    assert await c.open() == output
+
+
+async def test_closes(c):
+    output = ['close', None, id(c), 3]
+    assert await c.close() == output
+
+
 async def test_echoes(c):
     output = ['echo', (2, 3), id(c), 3]
     assert await c.echo(2, 3) == output
@@ -92,3 +103,9 @@ async def test_echoes(c):
 async def test_calls(c):
     output = ['call', {'name': 'name', 'args': (2, 3)}, id(c), 3]
     assert await c.call('name', 2, 3) == output
+
+
+async def test_opens_does_not_send_and_closes(c):
+    with pytest.raises(Exception):
+        async with c as client:
+            await client._send('error', None, 3)

@@ -152,8 +152,8 @@ async def test_does_not_send(s):
 
 async def test_starts_does_not_send_and_stops(s):
     with pytest.raises(StateError):
-        async with s as target:
-            await send(target, '', timeout=0)
+        async with s as server:
+            await send(server, '', timeout=0)
 
 
 async def test_starts_stops_and_does_not_send(s):
@@ -221,8 +221,12 @@ class Client:
 
 
 class MockChannel:
-    def __init__(self, server):
+    def __init__(self, server, code):
         server.channels[CHANNEL_KEY] = self
+        assert code == '() => { }'
+
+    def open(self):
+        pass
 
     def _handle_call(self, name, args):
         if name == 'error':
@@ -264,6 +268,11 @@ def server_with_client(mocker, mock_future):
 
 def start_with_sentinel(s, scenario):
     return asyncio.create_task(s._start(scenario))
+
+
+def open(s):
+    channel = s.open('() => { }')
+    assert isinstance(channel, MockChannel)
 
 
 async def test_connects_disconnects_does_not_stop_and_stops(caplog, server_with_client):
@@ -394,7 +403,7 @@ async def test_echoes(server_with_client):
     s, c = server_with_client
     await start_with_sentinel(s, DebugScenario.RECEIVE_BEFORE_CLEAN)
     await c.connection()
-    s.open()
+    open(s)
     await send(s, 'echo', 1)
     await s.stop()
     await c.disconnection()
@@ -409,7 +418,7 @@ async def test_calls(server_with_client):
     s, c = server_with_client
     await start_with_sentinel(s, DebugScenario.RECEIVE_BEFORE_CLEAN)
     await c.connection()
-    s.open()
+    open(s)
     await send(s, 'call', {'name': 'name', 'args': [2, 3]})
     await s.stop()
     await c.disconnection()
@@ -424,7 +433,7 @@ async def test_calls_async(server_with_client):
     s, c = server_with_client
     await start_with_sentinel(s, DebugScenario.RECEIVE_BEFORE_CLEAN)
     await c.connection()
-    s.open()
+    open(s)
     await send(s, 'call', {'name': 'async', 'args': [2, 3]})
     await s.stop()
     await c.disconnection()
@@ -440,7 +449,7 @@ async def test_calls_error(caplog, server_with_client):
         s, c = server_with_client
         await start_with_sentinel(s, DebugScenario.RECEIVE_BEFORE_CLEAN)
         await c.connection()
-        s.open()
+        open(s)
         await send(s, 'call', {'name': 'error', 'args': [2, 3]})
         await s.stop()
         await c.disconnection()
@@ -456,7 +465,7 @@ async def test_receives_unexpected_body_type(server_with_client):
     s, c = server_with_client
     await start_with_sentinel(s, DebugScenario.RECEIVE_BEFORE_CLEAN)
     await c.connection()
-    s.open()
+    open(s)
     await send(s, 'type')
     await s.stop()
     await c.disconnection()
