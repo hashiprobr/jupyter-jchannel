@@ -248,7 +248,7 @@ class Server:
                 self.load()
 
                 try:
-                    socket = await asyncio.wait_for(self.connection, timeout)
+                    socket = await asyncio.wait_for(asyncio.shield(self.connection), timeout)
                 except asyncio.TimeoutError:
                     raise StateError('Client not connected: check the browser console for details')
 
