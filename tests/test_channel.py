@@ -1,6 +1,7 @@
 import asyncio
 import pytest
 
+from jchannel.error import StateError
 from jchannel.channel import Channel
 
 
@@ -9,6 +10,7 @@ pytestmark = pytest.mark.asyncio(scope='module')
 
 class Server:
     def __init__(self):
+        self.closed = False
         self.channels = {}
 
     async def _send(self, body_type, input, channel_key, timeout):
@@ -16,7 +18,11 @@ class Server:
             raise Exception
         loop = asyncio.get_running_loop()
         future = loop.create_future()
-        future.set_result([body_type, input, channel_key, timeout])
+        if self.closed:
+            self.closed = False
+            future.set_exception(StateError)
+        else:
+            future.set_result([body_type, input, channel_key, timeout])
         return future
 
 
@@ -95,7 +101,19 @@ async def test_closes(c):
     assert await c.close() == output
 
 
+async def test_opens_does_not_send_and_closes(c):
+    with pytest.raises(Exception):
+        async with c as channel:
+            await channel._send('error', None, 3)
+
+
 async def test_echoes(c):
+    output = ['echo', (2, 3), id(c), 3]
+    assert await c.echo(2, 3) == output
+
+
+async def test_echoes_twice(server, c):
+    server.closed = True
     output = ['echo', (2, 3), id(c), 3]
     assert await c.echo(2, 3) == output
 
@@ -105,7 +123,7 @@ async def test_calls(c):
     assert await c.call('name', 2, 3) == output
 
 
-async def test_opens_does_not_send_and_closes(c):
-    with pytest.raises(Exception):
-        async with c as client:
-            await client._send('error', None, 3)
+async def test_calls_twice(server, c):
+    server.closed = True
+    output = ['call', {'name': 'name', 'args': (2, 3)}, id(c), 3]
+    assert await c.call('name', 2, 3) == output

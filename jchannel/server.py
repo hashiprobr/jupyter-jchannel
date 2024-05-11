@@ -5,17 +5,10 @@ import logging
 from enum import Enum, auto
 from inspect import isawaitable
 from aiohttp import web, WSMsgType
+from jchannel.error import StateError, JavascriptError
 from jchannel.registry import registry
 from jchannel.frontend import frontend
 from jchannel.channel import Channel
-
-
-class StateError(Exception):
-    pass
-
-
-class JavascriptError(Exception):
-    pass
 
 
 class DebugScenario(Enum):
@@ -202,11 +195,6 @@ class Server:
         restarting = True
 
         while restarting:
-            try:
-                await self.connection
-            except asyncio.CancelledError:
-                pass
-
             restarting = await self.disconnection
 
             if restarting:

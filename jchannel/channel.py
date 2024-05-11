@@ -1,5 +1,7 @@
 import asyncio
 
+from jchannel.error import StateError
+
 
 class Channel:
     def __init__(self, server, code):
@@ -68,4 +70,11 @@ class Channel:
     async def _send(self, body_type, input, timeout):
         future = await self.server._send(body_type, input, id(self), timeout)
 
-        return await future
+        try:
+            return await future
+        except StateError:
+            await self._open(timeout)
+
+            future = await self.server._send(body_type, input, id(self), timeout)
+
+            return await future
