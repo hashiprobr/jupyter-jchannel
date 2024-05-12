@@ -14,4 +14,4 @@ class Registry:
         keys = list(self.futures.keys())
         for key in keys:
             future = self.futures.pop(key)
-            future.cancel('Client disconnected')
+            future.cancel('Server disconnected')
