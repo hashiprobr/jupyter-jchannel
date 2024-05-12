@@ -1,5 +1,3 @@
-import pytest
-
 from jchannel.frontend.ipython import IPythonFrontend
 
 
@@ -10,8 +8,7 @@ def test_instantiates_with_url(mocker):
     assert frontend.url == 'http://localhost:8080/main.js'
 
 
-@pytest.fixture
-def f(mocker):
+def test_runs_twice(mocker):
     frontend = IPythonFrontend()
 
     def side_effect(element):
@@ -21,9 +18,5 @@ def f(mocker):
     display = mocker.patch('jchannel.frontend.ipython.display')
     display.side_effect = side_effect
 
-    return frontend
-
-
-def test_runs_twice(f):
-    f.run('a(b)')
-    f.run('a(b)')
+    frontend.run('a(b)')
+    frontend.run('a(b)')

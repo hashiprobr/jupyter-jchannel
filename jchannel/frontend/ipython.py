@@ -1,4 +1,4 @@
-from IPython.display import clear_output, display, Javascript
+from IPython.display import Javascript, display, clear_output
 from ipywidgets import Output
 from jchannel.frontend.abstract import AbstractFrontend
 
