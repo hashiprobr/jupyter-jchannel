@@ -3,7 +3,7 @@ import asyncio
 import logging
 import pytest
 
-from unittest.mock import Mock
+from unittest.mock import Mock, call
 from aiohttp import ClientSession
 from jchannel.error import StateError, JavascriptError
 from jchannel.server import Server, DebugScenario
@@ -247,6 +247,14 @@ def mock_future():
 
 @pytest.fixture
 def server_with_client(mocker, mock_future):
+    registry = Mock()
+
+    Registry = mocker.patch('jchannel.server.Registry')
+    Registry.return_value = registry
+
+    registry.store.return_value = FUTURE_KEY
+    registry.retrieve.return_value = mock_future
+
     Channel = mocker.patch('jchannel.server.Channel')
     Channel.side_effect = MockChannel
 
@@ -259,10 +267,6 @@ def server_with_client(mocker, mock_future):
 
     frontend = mocker.patch('jchannel.server.frontend')
     frontend.run.side_effect = side_effect
-
-    registry = mocker.patch('jchannel.server.registry')
-    registry.store.side_effect = lambda f: FUTURE_KEY
-    registry.retrieve.side_effect = lambda k: mock_future
 
     return s, c
 
@@ -286,6 +290,7 @@ async def test_connects_disconnects_does_not_stop_and_stops(caplog, server_with_
         with pytest.raises(StateError):
             await s.stop()
         await s.stop()
+        s.registry.clear.assert_has_calls(3 * [call()])
     assert caplog.records
 
 
@@ -370,7 +375,7 @@ async def test_receives_closed(caplog, mock_future, server_with_client):
         await send(s, 'closed')
         await s.stop()
         await c.disconnection()
-        mock_future.set_exception.assert_called_with(StateError)
+        mock_future.set_exception.assert_called_once_with(StateError)
     assert caplog.records
 
 

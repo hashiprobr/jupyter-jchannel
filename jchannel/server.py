@@ -6,9 +6,9 @@ from enum import Enum, auto
 from inspect import isawaitable
 from aiohttp import web, WSMsgType
 from jchannel.error import StateError, JavascriptError
-from jchannel.registry import registry
-from jchannel.frontend import frontend
+from jchannel.registry import Registry
 from jchannel.channel import Channel
+from jchannel.frontend import frontend
 
 
 class DebugScenario(Enum):
@@ -110,6 +110,7 @@ class Server:
         if __debug__:  # pragma: no cover
             self.sentinel = DebugSentinel()
 
+        self.registry = Registry()
         self.channels = {}
 
     def start(self):
@@ -176,6 +177,8 @@ class Server:
                 if self.connection is not None:
                     if not self.connection.done():
                         self.connection.set_result(None)
+
+                self.registry.clear()
 
                 if self.disconnection is not None:
                     if self.disconnection.done():
@@ -264,7 +267,7 @@ class Server:
             future = loop.create_future()
 
             body = {
-                'future': registry.store(future),
+                'future': self.registry.store(future),
                 'channel': channel_key,
                 'payload': payload,
             }
@@ -319,15 +322,15 @@ class Server:
                             case 'closed':
                                 logging.warning('Unexpected channel closure')
 
-                                future = registry.retrieve(future_key)
+                                future = self.registry.retrieve(future_key)
                                 future.set_exception(StateError)
                             case 'exception':
-                                future = registry.retrieve(future_key)
+                                future = self.registry.retrieve(future_key)
                                 future.set_exception(JavascriptError(payload))
                             case 'result':
                                 output = json.loads(payload)
 
-                                future = registry.retrieve(future_key)
+                                future = self.registry.retrieve(future_key)
                                 future.set_result(output)
                             case _:
                                 input = json.loads(payload)
@@ -365,8 +368,10 @@ class Server:
 
                     if __debug__:  # pragma: no cover
                         await self.sentinel.set_and_yield(DebugScenario.CATCH_BEFORE_CLEAN)
-                finally:
-                    request.app.socket = None
+
+                request.app.socket = None
+
+                self.registry.clear()
 
                 if __debug__:  # pragma: no cover
                     await self.sentinel.wait_on_count(DebugScenario.DISCONNECT_AFTER_STOP, 1)

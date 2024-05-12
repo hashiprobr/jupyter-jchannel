@@ -13,8 +13,5 @@ class Registry:
     def clear(self):
         keys = list(self.futures.keys())
         for key in keys:
-            self.futures[key].cancel('Client disconnected')
-            del self.futures[key]
-
-
-registry = Registry()
+            future = self.futures.pop(key)
+            future.cancel('Client disconnected')
