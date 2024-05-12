@@ -134,13 +134,8 @@ async def test_stops(s):
     await s.stop()
 
 
-async def test_starts_twice_and_stops(s):
+async def test_starts_twice_and_stops_twice(s):
     await s.start()
-    await s.start()
-    await s.stop()
-
-
-async def test_starts_and_stops_twice(s):
     await s.start()
     task = s.stop()
     await s.stop()
@@ -213,6 +208,8 @@ class Client:
                             await socket.send_str('')
                         case 'empty-body':
                             await socket.send_str('{}')
+                        case 'mock-closed':
+                            await socket.send_str(self._dumps('closed', None))
                         case 'mock-exception':
                             await socket.send_str(self._dumps('exception', ''))
                         case 'mock-result':
@@ -292,7 +289,7 @@ async def test_connects_disconnects_does_not_stop_and_stops(caplog, server_with_
             await s.stop()
         await s.stop()
         s.registry.clear.assert_has_calls(3 * [call()])
-    assert caplog.records
+    assert len(caplog.records) == 1
 
 
 async def test_connects_and_stops_twice(server_with_client):
@@ -324,7 +321,7 @@ async def test_connects_does_not_connect_and_stops(caplog, server_with_client):
         await s.stop()
         await c_0.disconnection()
         await c_1.disconnection()
-    assert caplog.records
+    assert len(caplog.records) == 1
 
 
 async def test_breaks_does_not_connect_and_cleans(server_with_client):
@@ -341,9 +338,9 @@ async def test_receives_unexpected_message_type(caplog, server_with_client):
         await start(s, DebugScenario.CATCH_BEFORE_CLEAN)
         await c.connection()
         await send(s, 'socket-bytes')
-        await s.stop()
         await c.disconnection()
-    assert caplog.records
+        await s.stop()
+    assert len(caplog.records) == 1
 
 
 async def test_receives_empty_message(caplog, server_with_client):
@@ -352,9 +349,9 @@ async def test_receives_empty_message(caplog, server_with_client):
         await start(s, DebugScenario.CATCH_BEFORE_CLEAN)
         await c.connection()
         await send(s, 'empty-message')
-        await s.stop()
         await c.disconnection()
-    assert caplog.records
+        await s.stop()
+    assert len(caplog.records) == 1
 
 
 async def test_receives_empty_body(caplog, server_with_client):
@@ -363,9 +360,9 @@ async def test_receives_empty_body(caplog, server_with_client):
         await start(s, DebugScenario.CATCH_BEFORE_CLEAN)
         await c.connection()
         await send(s, 'empty-body')
-        await s.stop()
         await c.disconnection()
-    assert caplog.records
+        await s.stop()
+    assert len(caplog.records) == 1
 
 
 async def test_receives_closed(caplog, mock_future, server_with_client):
@@ -373,11 +370,11 @@ async def test_receives_closed(caplog, mock_future, server_with_client):
         s, c = server_with_client
         await start(s, DebugScenario.RECEIVE_BEFORE_CLEAN)
         await c.connection()
-        await send(s, 'closed')
+        await send(s, 'mock-closed')
         await s.stop()
         await c.disconnection()
         mock_future.set_exception.assert_called_once_with(StateError)
-    assert caplog.records
+    assert len(caplog.records) == 1
 
 
 async def test_receives_exception(mock_future, server_with_client):
@@ -412,8 +409,8 @@ async def test_echoes(server_with_client):
     await c.connection()
     open(s)
     await send(s, 'echo', 1)
-    await s.stop()
     await c.disconnection()
+    await s.stop()
     assert len(c.body) == 4
     assert c.body['type'] == 'result'
     assert c.body['payload'] == '1'
@@ -427,8 +424,8 @@ async def test_calls(server_with_client):
     await c.connection()
     open(s)
     await send(s, 'call', {'name': 'name', 'args': [2, 3]})
-    await s.stop()
     await c.disconnection()
+    await s.stop()
     assert len(c.body) == 4
     assert c.body['type'] == 'result'
     assert c.body['payload'] == '[2, 3]'
@@ -442,8 +439,8 @@ async def test_calls_async(server_with_client):
     await c.connection()
     open(s)
     await send(s, 'call', {'name': 'async', 'args': [2, 3]})
-    await s.stop()
     await c.disconnection()
+    await s.stop()
     assert len(c.body) == 4
     assert c.body['type'] == 'result'
     assert c.body['payload'] == '[2, 3]'
@@ -458,14 +455,14 @@ async def test_calls_error(caplog, server_with_client):
         await c.connection()
         open(s)
         await send(s, 'call', {'name': 'error', 'args': [2, 3]})
-        await s.stop()
         await c.disconnection()
+        await s.stop()
         assert len(c.body) == 4
         assert c.body['type'] == 'exception'
         assert isinstance(c.body['payload'], str)
         assert c.body['channel'] == CHANNEL_KEY
         assert c.body['future'] == FUTURE_KEY
-    assert caplog.records
+    assert len(caplog.records) == 1
 
 
 async def test_receives_unexpected_body_type(server_with_client):
@@ -474,8 +471,8 @@ async def test_receives_unexpected_body_type(server_with_client):
     await c.connection()
     open(s)
     await send(s, 'type')
-    await s.stop()
     await c.disconnection()
+    await s.stop()
     assert len(c.body) == 4
     assert c.body['type'] == 'exception'
     assert isinstance(c.body['payload'], str)
