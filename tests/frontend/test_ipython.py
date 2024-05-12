@@ -2,10 +2,10 @@ from jchannel.frontend.ipython import IPythonFrontend
 
 
 def test_instantiates_with_url(mocker):
-    environ = {'JCHANNEL_CLIENT_URL': 'http://localhost:8080/main.js'}
+    environ = {'JCHANNEL_CLIENT_URL': 's'}
     mocker.patch.dict('jchannel.frontend.abstract.os.environ', environ)
     frontend = IPythonFrontend()
-    assert frontend.url == 'http://localhost:8080/main.js'
+    assert frontend.url == 's'
 
 
 def test_runs_twice(mocker):

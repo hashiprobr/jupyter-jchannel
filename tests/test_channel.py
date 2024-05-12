@@ -33,13 +33,13 @@ def server():
 
 @pytest.fixture
 def c(server):
-    return Channel(server, 'code')
+    return Channel(server, '() => { }')
 
 
 async def test_instantiates(server, c):
     assert server.channels[id(c)] == c
     assert c.server == server
-    assert c.code == 'code'
+    assert c.code == '() => { }'
     assert c.handler is None
 
 
