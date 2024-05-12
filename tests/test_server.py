@@ -272,19 +272,19 @@ def server_with_client(mocker, mock_future):
     return s, c
 
 
-def start_with_sentinel(s, scenario):
-    return asyncio.create_task(s._start(scenario))
-
-
 def open(s):
     channel = s.open('() => { }')
     assert isinstance(channel, MockChannel)
 
 
+async def start(s, scenario):
+    return await s._start(scenario)
+
+
 async def test_connects_disconnects_does_not_stop_and_stops(caplog, server_with_client):
     with caplog.at_level(logging.WARNING):
         s, c = server_with_client
-        await start_with_sentinel(s, DebugScenario.STOP_BEFORE_RESTART)
+        await start(s, DebugScenario.STOP_BEFORE_RESTART)
         await c.connection()
         await send(s, 'socket-close')
         await c.disconnection()
@@ -297,7 +297,7 @@ async def test_connects_disconnects_does_not_stop_and_stops(caplog, server_with_
 
 async def test_connects_and_stops_twice(server_with_client):
     s, c = server_with_client
-    await start_with_sentinel(s, DebugScenario.STOP_AFTER_BREAK)
+    await start(s, DebugScenario.STOP_AFTER_BREAK)
     await c.connection()
     task = s.stop()
     await s.stop()
@@ -307,7 +307,7 @@ async def test_connects_and_stops_twice(server_with_client):
 
 async def test_stops_and_does_not_connect(server_with_client):
     s, c = server_with_client
-    await start_with_sentinel(s, DebugScenario.CONNECT_BEFORE_BREAK)
+    await start(s, DebugScenario.CONNECT_BEFORE_BREAK)
     await s.stop()
     await c.connection()
     await c.disconnection()
@@ -329,7 +329,7 @@ async def test_connects_does_not_connect_and_stops(caplog, server_with_client):
 
 async def test_breaks_does_not_connect_and_cleans(server_with_client):
     s, c = server_with_client
-    await start_with_sentinel(s, DebugScenario.CONNECT_BEFORE_CLEAN)
+    await start(s, DebugScenario.CONNECT_BEFORE_CLEAN)
     await s.stop()
     await c.connection()
     await c.disconnection()
@@ -338,7 +338,7 @@ async def test_breaks_does_not_connect_and_cleans(server_with_client):
 async def test_receives_unexpected_message_type(caplog, server_with_client):
     with caplog.at_level(logging.ERROR):
         s, c = server_with_client
-        await start_with_sentinel(s, DebugScenario.CATCH_BEFORE_CLEAN)
+        await start(s, DebugScenario.CATCH_BEFORE_CLEAN)
         await c.connection()
         await send(s, 'socket-bytes')
         await s.stop()
@@ -349,7 +349,7 @@ async def test_receives_unexpected_message_type(caplog, server_with_client):
 async def test_receives_empty_message(caplog, server_with_client):
     with caplog.at_level(logging.ERROR):
         s, c = server_with_client
-        await start_with_sentinel(s, DebugScenario.CATCH_BEFORE_CLEAN)
+        await start(s, DebugScenario.CATCH_BEFORE_CLEAN)
         await c.connection()
         await send(s, 'empty-message')
         await s.stop()
@@ -360,7 +360,7 @@ async def test_receives_empty_message(caplog, server_with_client):
 async def test_receives_empty_body(caplog, server_with_client):
     with caplog.at_level(logging.ERROR):
         s, c = server_with_client
-        await start_with_sentinel(s, DebugScenario.CATCH_BEFORE_CLEAN)
+        await start(s, DebugScenario.CATCH_BEFORE_CLEAN)
         await c.connection()
         await send(s, 'empty-body')
         await s.stop()
@@ -371,7 +371,7 @@ async def test_receives_empty_body(caplog, server_with_client):
 async def test_receives_closed(caplog, mock_future, server_with_client):
     with caplog.at_level(logging.WARNING):
         s, c = server_with_client
-        await start_with_sentinel(s, DebugScenario.RECEIVE_BEFORE_CLEAN)
+        await start(s, DebugScenario.RECEIVE_BEFORE_CLEAN)
         await c.connection()
         await send(s, 'closed')
         await s.stop()
@@ -382,7 +382,7 @@ async def test_receives_closed(caplog, mock_future, server_with_client):
 
 async def test_receives_exception(mock_future, server_with_client):
     s, c = server_with_client
-    await start_with_sentinel(s, DebugScenario.RECEIVE_BEFORE_CLEAN)
+    await start(s, DebugScenario.RECEIVE_BEFORE_CLEAN)
     await c.connection()
     await send(s, 'mock-exception')
     await s.stop()
@@ -396,7 +396,7 @@ async def test_receives_exception(mock_future, server_with_client):
 
 async def test_receives_result(mock_future, server_with_client):
     s, c = server_with_client
-    await start_with_sentinel(s, DebugScenario.RECEIVE_BEFORE_CLEAN)
+    await start(s, DebugScenario.RECEIVE_BEFORE_CLEAN)
     await c.connection()
     await send(s, 'mock-result')
     await s.stop()
@@ -408,7 +408,7 @@ async def test_receives_result(mock_future, server_with_client):
 
 async def test_echoes(server_with_client):
     s, c = server_with_client
-    await start_with_sentinel(s, DebugScenario.RECEIVE_BEFORE_CLEAN)
+    await start(s, DebugScenario.RECEIVE_BEFORE_CLEAN)
     await c.connection()
     open(s)
     await send(s, 'echo', 1)
@@ -423,7 +423,7 @@ async def test_echoes(server_with_client):
 
 async def test_calls(server_with_client):
     s, c = server_with_client
-    await start_with_sentinel(s, DebugScenario.RECEIVE_BEFORE_CLEAN)
+    await start(s, DebugScenario.RECEIVE_BEFORE_CLEAN)
     await c.connection()
     open(s)
     await send(s, 'call', {'name': 'name', 'args': [2, 3]})
@@ -438,7 +438,7 @@ async def test_calls(server_with_client):
 
 async def test_calls_async(server_with_client):
     s, c = server_with_client
-    await start_with_sentinel(s, DebugScenario.RECEIVE_BEFORE_CLEAN)
+    await start(s, DebugScenario.RECEIVE_BEFORE_CLEAN)
     await c.connection()
     open(s)
     await send(s, 'call', {'name': 'async', 'args': [2, 3]})
@@ -454,7 +454,7 @@ async def test_calls_async(server_with_client):
 async def test_calls_error(caplog, server_with_client):
     with caplog.at_level(logging.ERROR):
         s, c = server_with_client
-        await start_with_sentinel(s, DebugScenario.RECEIVE_BEFORE_CLEAN)
+        await start(s, DebugScenario.RECEIVE_BEFORE_CLEAN)
         await c.connection()
         open(s)
         await send(s, 'call', {'name': 'error', 'args': [2, 3]})
@@ -470,7 +470,7 @@ async def test_calls_error(caplog, server_with_client):
 
 async def test_receives_unexpected_body_type(server_with_client):
     s, c = server_with_client
-    await start_with_sentinel(s, DebugScenario.RECEIVE_BEFORE_CLEAN)
+    await start(s, DebugScenario.RECEIVE_BEFORE_CLEAN)
     await c.connection()
     open(s)
     await send(s, 'type')
@@ -485,7 +485,7 @@ async def test_receives_unexpected_body_type(server_with_client):
 
 async def test_connects_disconnects_and_stops(server_with_client):
     s, c = server_with_client
-    await start_with_sentinel(s, DebugScenario.DISCONNECT_AFTER_STOP)
+    await start(s, DebugScenario.DISCONNECT_AFTER_STOP)
     await c.connection()
     await send(s, 'socket-close')
     await c.disconnection()
@@ -496,7 +496,7 @@ async def test_connects_disconnects_and_stops(server_with_client):
 
 async def test_does_not_send_connects_and_stops(server_with_client):
     s, c = server_with_client
-    await start_with_sentinel(s, DebugScenario.SEND_BEFORE_PREPARE)
+    await start(s, DebugScenario.SEND_BEFORE_PREPARE)
     with pytest.raises(StateError):
         await send(s, '')
     await c.connection()
