@@ -12,14 +12,13 @@ from jchannel.frontend import frontend
 
 
 class DebugScenario(Enum):
-    STOP_BEFORE_RESTART = auto()
-    STOP_AFTER_BREAK = auto()
-    CONNECT_BEFORE_BREAK = auto()
-    CONNECT_BEFORE_CLEAN = auto()
-    RECEIVE_BEFORE_CLEAN = auto()
-    CATCH_BEFORE_CLEAN = auto()
-    DISCONNECT_AFTER_STOP = auto()
-    SEND_BEFORE_PREPARE = auto()
+    READ_CONNECTION_REFERENCE_AFTER_REFERENCE_IS_NONE = auto()
+    READ_CONNECTION_RESULT_BEFORE_REFERENCE_IS_NONE = auto()
+    READ_DISCONNECTION_STATE_AFTER_RESULT_IS_SET = auto()
+    READ_DISCONNECTION_RESULT_BEFORE_OBJECT_IS_REPLACED = auto()
+    READ_SOCKET_STATE_BEFORE_SOCKET_IS_PREPARED = auto()
+    RECEIVE_SOCKET_REQUEST_BEFORE_SERVER_IS_STOPPED = auto()
+    RECEIVE_SOCKET_MESSAGE_BEFORE_SERVER_IS_STOPPED = auto()
 
 
 class DebugEvent(asyncio.Event):
@@ -169,30 +168,29 @@ class Server:
             self.load()
 
     async def _stop(self):
-        if __debug__:  # pragma: no cover
-            await self.sentinel.wait_on_count(DebugScenario.STOP_AFTER_BREAK, 2)
-
-        try:
-            if self.cleaned is not None:
-                if self.connection is not None:
-                    if not self.connection.done():
-                        self.connection.set_result(None)
-
-                self.registry.clear()
-
-                if self.disconnection is not None:
-                    if self.disconnection.done():
-                        restarting = self.disconnection.result()
-
-                        if restarting:
-                            raise StateError('Cannot stop server while restarting')
-                    else:
-                        self.disconnection.set_result(False)
-
-                await self.cleaned.wait()
-        finally:
+        if self.cleaned is not None:
             if __debug__:  # pragma: no cover
-                await self.sentinel.set_and_yield(DebugScenario.STOP_BEFORE_RESTART)
+                await self.sentinel.wait_on_count(DebugScenario.READ_CONNECTION_REFERENCE_AFTER_REFERENCE_IS_NONE, 2)
+
+            if self.connection is not None:
+                if not self.connection.done():
+                    self.connection.set_result(None)
+
+            self.registry.clear()
+
+            if self.disconnection is not None:
+                if self.disconnection.done():
+                    restarting = self.disconnection.result()
+
+                    if __debug__:  # pragma: no cover
+                        await self.sentinel.set_and_yield(DebugScenario.READ_DISCONNECTION_RESULT_BEFORE_OBJECT_IS_REPLACED)
+
+                    if restarting:
+                        raise StateError('Cannot stop server while restarting')
+                else:
+                    self.disconnection.set_result(False)
+
+            await self.cleaned.wait()
 
     async def _run(self, runner, site):
         restarting = True
@@ -200,26 +198,29 @@ class Server:
         while restarting:
             restarting = await self.disconnection
 
+            if __debug__:  # pragma: no cover
+                await self.sentinel.set_and_yield(DebugScenario.READ_DISCONNECTION_STATE_AFTER_RESULT_IS_SET)
+
             if restarting:
                 if __debug__:  # pragma: no cover
-                    await self.sentinel.wait_on_count(DebugScenario.STOP_BEFORE_RESTART, 1)
+                    await self.sentinel.wait_on_count(DebugScenario.READ_DISCONNECTION_RESULT_BEFORE_OBJECT_IS_REPLACED, 1)
 
                 loop = asyncio.get_running_loop()
                 self.connection = loop.create_future()
                 self.disconnection = loop.create_future()
             else:
                 if __debug__:  # pragma: no cover
-                    await self.sentinel.set_and_yield(DebugScenario.DISCONNECT_AFTER_STOP)
-                    await self.sentinel.wait_on_count(DebugScenario.CONNECT_BEFORE_BREAK, 1)
+                    await self.sentinel.wait_on_count(DebugScenario.READ_CONNECTION_RESULT_BEFORE_REFERENCE_IS_NONE, 1)
 
                 self.connection = None
                 self.disconnection = None
 
+                if __debug__:  # pragma: no cover
+                    await self.sentinel.set_and_yield(DebugScenario.READ_CONNECTION_REFERENCE_AFTER_REFERENCE_IS_NONE)
+
         if __debug__:  # pragma: no cover
-            await self.sentinel.set_and_yield(DebugScenario.STOP_AFTER_BREAK)
-            await self.sentinel.wait_on_count(DebugScenario.CONNECT_BEFORE_CLEAN, 1)
-            await self.sentinel.wait_on_count(DebugScenario.RECEIVE_BEFORE_CLEAN, 1)
-            await self.sentinel.wait_on_count(DebugScenario.CATCH_BEFORE_CLEAN, 1)
+            await self.sentinel.wait_on_count(DebugScenario.RECEIVE_SOCKET_REQUEST_BEFORE_SERVER_IS_STOPPED, 1)
+            await self.sentinel.wait_on_count(DebugScenario.RECEIVE_SOCKET_MESSAGE_BEFORE_SERVER_IS_STOPPED, 1)
 
         await site.stop()
         await runner.cleanup()
@@ -244,54 +245,59 @@ class Server:
         await socket.send_str(data)
 
     async def _send(self, body_type, input, channel_key, timeout):
-        try:
-            if self.connection is None:
-                socket = None
-            else:
-                self.load()
+        if self.connection is None:
+            socket = None
+        else:
+            self.load()
 
-                try:
-                    socket = await asyncio.wait_for(asyncio.shield(self.connection), timeout)
-                except asyncio.TimeoutError:
-                    raise StateError('Client timed out: check the browser console for details')
+            try:
+                socket = await asyncio.wait_for(asyncio.shield(self.connection), timeout)
+            except asyncio.TimeoutError:
+                raise StateError('Client timed out: check the browser console for details')
 
-            if socket is None:
-                raise StateError('Server not running')
+        if socket is None:
+            raise StateError('Server not running')
 
-            if not socket.prepared:
-                raise StateError('Server not prepared')
-
-            if socket.closed:
-                raise StateError('Server not connected')
-
-            payload = json.dumps(input)
-
-            loop = asyncio.get_running_loop()
-            future = loop.create_future()
-
-            body = {
-                'future': self.registry.store(future),
-                'channel': channel_key,
-                'payload': payload,
-            }
-
-            await self._accept(socket, body_type, body)
-
-            return future
-        finally:
+        if not socket.prepared:
             if __debug__:  # pragma: no cover
-                await self.sentinel.set_and_yield(DebugScenario.SEND_BEFORE_PREPARE)
+                await self.sentinel.set_and_yield(DebugScenario.READ_SOCKET_STATE_BEFORE_SOCKET_IS_PREPARED)
+
+            raise StateError('Server not prepared')
+
+        if socket.closed:
+            raise StateError('Server not connected')
+
+        payload = json.dumps(input)
+
+        loop = asyncio.get_running_loop()
+        future = loop.create_future()
+
+        body = {
+            'future': self.registry.store(future),
+            'channel': channel_key,
+            'payload': payload,
+        }
+
+        await self._accept(socket, body_type, body)
+
+        return future
 
     async def _on_shutdown(self, app):
         if app.socket is not None:
             await app.socket.close()
 
     async def _handle_socket(self, request):
+        if __debug__:  # pragma: no cover
+            await self.sentinel.set_and_yield(DebugScenario.RECEIVE_SOCKET_REQUEST_BEFORE_SERVER_IS_STOPPED)
+
         if self.connection is None:
             socket = await self._reject(request)
         else:
             if self.connection.done():
                 socket = self.connection.result()
+
+                if __debug__:  # pragma: no cover
+                    await self.sentinel.set_and_yield(DebugScenario.READ_CONNECTION_RESULT_BEFORE_REFERENCE_IS_NONE)
 
                 if socket is not None:
                     logging.warning('Received socket request while already connected')
@@ -303,7 +309,7 @@ class Server:
                 self.connection.set_result(socket)
 
                 if __debug__:  # pragma: no cover
-                    await self.sentinel.wait_on_count(DebugScenario.SEND_BEFORE_PREPARE, 1)
+                    await self.sentinel.wait_on_count(DebugScenario.READ_SOCKET_STATE_BEFORE_SOCKET_IS_PREPARED, 1)
 
                 await socket.prepare(request)
 
@@ -311,6 +317,9 @@ class Server:
 
                 try:
                     async for message in socket:
+                        if __debug__:  # pragma: no cover
+                            await self.sentinel.set_and_yield(DebugScenario.RECEIVE_SOCKET_MESSAGE_BEFORE_SERVER_IS_STOPPED)
+
                         if message.type != WSMsgType.TEXT:
                             raise TypeError(f'Received unexpected message type {message.type}')
 
@@ -363,31 +372,21 @@ class Server:
                                 body['payload'] = payload
 
                                 await self._accept(socket, body_type, body)
-
-                        if __debug__:  # pragma: no cover
-                            await self.sentinel.set_and_yield(DebugScenario.RECEIVE_BEFORE_CLEAN)
                 except Exception:
                     logging.exception('Caught unexpected exception')
-
-                    if __debug__:  # pragma: no cover
-                        await self.sentinel.set_and_yield(DebugScenario.CATCH_BEFORE_CLEAN)
 
                 request.app.socket = None
 
                 self.registry.clear()
 
-                if __debug__:  # pragma: no cover
-                    await self.sentinel.wait_on_count(DebugScenario.DISCONNECT_AFTER_STOP, 1)
-
                 if self.disconnection is not None:
+                    if __debug__:  # pragma: no cover
+                        await self.sentinel.wait_on_count(DebugScenario.READ_DISCONNECTION_STATE_AFTER_RESULT_IS_SET, 1)
+
                     if not self.disconnection.done():
                         logging.warning('Unexpected client disconnection')
 
                         self.disconnection.set_result(True)
-
-        if __debug__:  # pragma: no cover
-            await self.sentinel.set_and_yield(DebugScenario.CONNECT_BEFORE_BREAK)
-            await self.sentinel.set_and_yield(DebugScenario.CONNECT_BEFORE_CLEAN)
 
         return socket
 
