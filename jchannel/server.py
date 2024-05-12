@@ -253,13 +253,16 @@ class Server:
                 try:
                     socket = await asyncio.wait_for(asyncio.shield(self.connection), timeout)
                 except asyncio.TimeoutError:
-                    raise StateError('Client not connected: check the browser console for details')
+                    raise StateError('Client timed out: check the browser console for details')
 
             if socket is None:
                 raise StateError('Server not running')
 
             if not socket.prepared:
                 raise StateError('Server not prepared')
+
+            if socket.closed:
+                raise StateError('Server not connected')
 
             payload = json.dumps(input)
 

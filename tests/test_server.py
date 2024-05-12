@@ -488,6 +488,8 @@ async def test_connects_disconnects_and_stops(server_with_client):
     await c.connection()
     await send(s, 'socket-close')
     await c.disconnection()
+    with pytest.raises(StateError):
+        await send(s, '')
     await s.stop()
 
 
