@@ -275,14 +275,10 @@ def open(s, timeout=3):
     assert isinstance(channel, MockChannel)
 
 
-async def start(s, scenario):
-    return await s._start(scenario)
-
-
 async def test_connects_disconnects_does_not_stop_and_stops(caplog, server_with_client):
     with caplog.at_level(logging.WARNING):
         s, c = server_with_client
-        await start(s, DebugScenario.READ_DISCONNECTION_RESULT_BEFORE_OBJECT_IS_REPLACED)
+        await s._start(DebugScenario.READ_DISCONNECTION_RESULT_BEFORE_OBJECT_IS_REPLACED)
         await c.connection()
         await send(s, 'socket-close')
         await c.disconnection()
@@ -295,7 +291,7 @@ async def test_connects_disconnects_does_not_stop_and_stops(caplog, server_with_
 
 async def test_connects_and_stops_twice(server_with_client):
     s, c = server_with_client
-    await start(s, DebugScenario.READ_CONNECTION_REFERENCE_AFTER_REFERENCE_IS_NONE)
+    await s._start(DebugScenario.READ_CONNECTION_REFERENCE_AFTER_REFERENCE_IS_NONE)
     await c.connection()
     task = s.stop()
     await s.stop()
@@ -305,7 +301,7 @@ async def test_connects_and_stops_twice(server_with_client):
 
 async def test_stops_and_does_not_connect(server_with_client):
     s, c = server_with_client
-    await start(s, DebugScenario.READ_CONNECTION_RESULT_BEFORE_REFERENCE_IS_NONE)
+    await s._start(DebugScenario.READ_CONNECTION_RESULT_BEFORE_REFERENCE_IS_NONE)
     await s.stop()
     await c.connection()
     await c.disconnection()
@@ -327,7 +323,7 @@ async def test_connects_does_not_connect_and_stops(caplog, server_with_client):
 
 async def test_does_not_connect_and_stops(server_with_client):
     s, c = server_with_client
-    await start(s, DebugScenario.RECEIVE_SOCKET_REQUEST_BEFORE_SERVER_IS_STOPPED)
+    await s._start(DebugScenario.RECEIVE_SOCKET_REQUEST_BEFORE_SERVER_IS_STOPPED)
     await s.stop()
     await c.connection()
     await c.disconnection()
@@ -335,7 +331,7 @@ async def test_does_not_connect_and_stops(server_with_client):
 
 async def test_connects_disconnects_does_not_send_and_stops(server_with_client):
     s, c = server_with_client
-    await start(s, DebugScenario.READ_DISCONNECTION_STATE_AFTER_RESULT_IS_SET)
+    await s._start(DebugScenario.READ_DISCONNECTION_STATE_AFTER_RESULT_IS_SET)
     await c.connection()
     await send(s, 'socket-close')
     await c.disconnection()
@@ -346,7 +342,7 @@ async def test_connects_disconnects_does_not_send_and_stops(server_with_client):
 
 async def test_does_not_send_connects_and_stops(server_with_client):
     s, c = server_with_client
-    await start(s, DebugScenario.READ_SOCKET_STATE_BEFORE_SOCKET_IS_PREPARED)
+    await s._start(DebugScenario.READ_SOCKET_STATE_BEFORE_SOCKET_IS_PREPARED)
     with pytest.raises(StateError):
         await send(s, '')
     await c.connection()
@@ -390,7 +386,7 @@ async def test_receives_empty_body(caplog, server_with_client):
 async def test_receives_closed(caplog, mock_future, server_with_client):
     with caplog.at_level(logging.WARNING):
         s, c = server_with_client
-        await start(s, DebugScenario.RECEIVE_SOCKET_MESSAGE_BEFORE_SERVER_IS_STOPPED)
+        await s._start(DebugScenario.RECEIVE_SOCKET_MESSAGE_BEFORE_SERVER_IS_STOPPED)
         await c.connection()
         await send(s, 'mock-closed')
         await s.stop()
@@ -401,7 +397,7 @@ async def test_receives_closed(caplog, mock_future, server_with_client):
 
 async def test_receives_exception(mock_future, server_with_client):
     s, c = server_with_client
-    await start(s, DebugScenario.RECEIVE_SOCKET_MESSAGE_BEFORE_SERVER_IS_STOPPED)
+    await s._start(DebugScenario.RECEIVE_SOCKET_MESSAGE_BEFORE_SERVER_IS_STOPPED)
     await c.connection()
     await send(s, 'mock-exception')
     await s.stop()
@@ -415,7 +411,7 @@ async def test_receives_exception(mock_future, server_with_client):
 
 async def test_receives_result(mock_future, server_with_client):
     s, c = server_with_client
-    await start(s, DebugScenario.RECEIVE_SOCKET_MESSAGE_BEFORE_SERVER_IS_STOPPED)
+    await s._start(DebugScenario.RECEIVE_SOCKET_MESSAGE_BEFORE_SERVER_IS_STOPPED)
     await c.connection()
     await send(s, 'mock-result')
     await s.stop()
