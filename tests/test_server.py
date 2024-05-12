@@ -224,9 +224,6 @@ class MockChannel:
         server.channels[CHANNEL_KEY] = self
         assert code == '() => { }'
 
-    def open(self):
-        pass
-
     def _handle_call(self, name, args):
         if name == 'error':
             raise Exception
@@ -236,6 +233,10 @@ class MockChannel:
 
     async def resolve(self, args):
         return args
+
+    async def _open(self, timeout):
+        if not timeout:
+            raise Exception
 
 
 @pytest.fixture
@@ -269,8 +270,8 @@ def server_with_client(mocker, mock_future):
     return s, c
 
 
-def open(s):
-    channel = s.open('() => { }')
+def open(s, timeout=3):
+    channel = s.open('() => { }', timeout)
     assert isinstance(channel, MockChannel)
 
 
@@ -422,6 +423,17 @@ async def test_receives_result(mock_future, server_with_client):
     args, _ = mock_future.set_result.call_args
     output, = args
     assert output == 0
+
+
+async def test_does_not_open(caplog, server_with_client):
+    with caplog.at_level(logging.ERROR):
+        s, c = server_with_client
+        await s.start()
+        await c.connection()
+        open(s, 0)
+        await s.stop()
+        await c.disconnection()
+    assert len(caplog.records) == 1
 
 
 async def test_echoes(server_with_client):

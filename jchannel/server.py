@@ -121,9 +121,9 @@ class Server:
     def load(self):
         frontend.run(f"jchannel.start('{self.url}')")
 
-    def open(self, code):
+    def open(self, code, timeout=3):
         channel = Channel(self, code)
-        channel.open()
+        asyncio.create_task(self._open(channel, timeout))
         return channel
 
     async def __aenter__(self):
@@ -227,6 +227,12 @@ class Server:
 
         self.cleaned.set()
         self.cleaned = None
+
+    async def _open(self, channel, timeout):
+        try:
+            await channel._open(timeout)
+        except Exception:
+            logging.exception('Channel open exception')
 
     async def _reject(self, request):
         socket = web.WebSocketResponse()

@@ -18,7 +18,7 @@ pytestmark = pytest.mark.asyncio(scope='module')
 async def test_starts(mocker, caplog):
     with caplog.at_level(logging.ERROR):
         async def side_effect():
-            raise Exception()
+            raise Exception
 
         server = Mock()
         server._start.side_effect = side_effect
