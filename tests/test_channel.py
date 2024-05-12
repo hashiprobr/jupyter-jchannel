@@ -92,7 +92,7 @@ async def test_does_not_handle_call_without_callable_handler_attribute(c):
 
 
 async def test_opens(c):
-    output = ['open', 'code', id(c), 3]
+    output = ['open', '() => { }', id(c), 3]
     assert await c.open() == output
 
 
