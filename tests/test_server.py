@@ -135,8 +135,9 @@ async def test_stops(s):
 
 
 async def test_starts_twice_and_stops(s):
-    async with s:
-        await s.start()
+    await s.start()
+    await s.start()
+    await s.stop()
 
 
 async def test_starts_and_stops_twice(s):
