@@ -40,7 +40,7 @@ class AbstractFrontend(ABC):
             promise.then(() => {{
                 {code};
             }}).catch((error) => {{
-                console.error(error.message);
+                console.error(error);
             }});
         ''')
 
