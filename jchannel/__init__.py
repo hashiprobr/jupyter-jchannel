@@ -13,5 +13,5 @@ def start(host='localhost', port=8889, url=None, heartbeat=30):
 async def _start(server):
     try:
         await server._start()
-    except Exception:
+    except:
         logging.exception('Server start exception')

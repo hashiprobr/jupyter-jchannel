@@ -231,7 +231,7 @@ class Server:
     async def _open(self, channel, timeout):
         try:
             await channel._open(timeout)
-        except Exception:
+        except:
             logging.exception('Channel open exception')
 
     async def _reject(self, request):
@@ -369,7 +369,7 @@ class Server:
                                         case _:
                                             payload = f'Received unexpected body type {body_type}'
                                             body_type = 'exception'
-                                except Exception:
+                                except:
                                     logging.exception('Caught handler exception')
 
                                     payload = 'Check the notebook log for details'
@@ -378,7 +378,7 @@ class Server:
                                 body['payload'] = payload
 
                                 await self._accept(socket, body_type, body)
-                except Exception:
+                except:
                     logging.exception('Caught unexpected exception')
 
                 request.app.socket = None
