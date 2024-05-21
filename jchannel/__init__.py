@@ -14,4 +14,4 @@ async def _start(server):
     try:
         await server._start()
     except:
-        logging.exception('Server start exception')
+        logging.exception('Could not start server')

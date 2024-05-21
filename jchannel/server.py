@@ -232,7 +232,7 @@ class Server:
         try:
             await channel._open(timeout)
         except:
-            logging.exception('Channel open exception')
+            logging.exception('Could not open channel')
 
     async def _reject(self, request):
         socket = web.WebSocketResponse()
