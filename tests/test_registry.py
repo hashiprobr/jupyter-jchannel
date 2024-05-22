@@ -3,7 +3,6 @@ import pytest
 
 from jchannel.registry import Registry
 
-
 pytestmark = pytest.mark.asyncio(scope='module')
 
 
