@@ -5,7 +5,7 @@ import logging
 from enum import Enum, auto
 from inspect import isawaitable
 from aiohttp import web, WSMsgType
-from jchannel.types import StateError, JavascriptError, AbstractServer
+from jchannel.types import AbstractServer, JavascriptError, StateError
 from jchannel.registry import Registry
 from jchannel.channel import Channel
 from jchannel.frontend import frontend

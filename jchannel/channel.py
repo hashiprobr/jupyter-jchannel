@@ -1,7 +1,7 @@
 import asyncio
 import logging
 
-from jchannel.types import StateError, AbstractServer
+from jchannel.types import AbstractServer, StateError
 
 
 class Channel:

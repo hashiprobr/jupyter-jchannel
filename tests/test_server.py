@@ -5,7 +5,7 @@ import pytest
 
 from unittest.mock import Mock, call
 from aiohttp import ClientSession
-from jchannel.types import StateError, JavascriptError
+from jchannel.types import JavascriptError, StateError
 from jchannel.server import Server, DebugScenario
 
 

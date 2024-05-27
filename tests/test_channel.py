@@ -2,7 +2,7 @@ import asyncio
 import logging
 import pytest
 
-from jchannel.types import StateError, AbstractServer
+from jchannel.types import AbstractServer, StateError
 from jchannel.channel import Channel
 
 pytestmark = pytest.mark.asyncio(scope='module')
