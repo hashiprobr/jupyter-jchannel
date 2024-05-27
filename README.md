@@ -1,5 +1,5 @@
 jupyter-jchannel
-----------------
+================
 
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/jupyter-jchannel)](https://devguide.python.org/versions/)
 [![PyPI - Version](https://img.shields.io/pypi/v/jupyter-jchannel)](https://pypi.org/project/jupyter-jchannel/)

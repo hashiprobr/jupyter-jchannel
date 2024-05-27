@@ -1,18 +1,28 @@
 import asyncio
+import logging
 
-from jchannel.error import StateError
+from jchannel.types import StateError, AbstractServer
 
 
 class Channel:
     def __init__(self, server, code):
-        server.channels[id(self)] = self
+        if not isinstance(server, AbstractServer):
+            raise TypeError('First parameter must be a jchannel server')
 
-        self.server = server
-        self.code = code
-        self.handler = None
+        server._channels[id(self)] = self
 
-    def __del__(self):
-        del self.server.channels[id(self)]
+        self._server = server
+        self._code = code
+        self._handler = None
+        self._use = False
+
+    def destroy(self):
+        if self._use:
+            raise StateError('Channel is currently in use')
+
+        del self._server._channels[id(self)]
+
+        self._server = None
 
     def open(self, timeout=3):
         return asyncio.create_task(self._open(timeout))
@@ -26,10 +36,12 @@ class Channel:
     def call(self, name, *args, timeout=3):
         return asyncio.create_task(self._call(name, args, timeout))
 
-    def set_handler(self, handler):
+    def _set_handler(self, handler):
         if handler is None:
             raise ValueError('Handler cannot be None')
-        self.handler = handler
+        self._handler = handler
+
+    handler = property(fset=_set_handler)
 
     def _handle_call(self, name, args):
         method = self._method(name)
@@ -37,10 +49,10 @@ class Channel:
         return method(*args)
 
     def _method(self, name):
-        if self.handler is None:
+        if self._handler is None:
             raise ValueError('Channel does not have handler')
 
-        method = getattr(self.handler, name)
+        method = getattr(self._handler, name)
 
         if not callable(method):
             raise TypeError(f'Handler attribute {name} is not callable')
@@ -56,10 +68,14 @@ class Channel:
         return False
 
     async def _open(self, timeout):
-        return await self._send('open', self.code, timeout)
+        result = await self._send('open', self._code, timeout)
+        self._use = True
+        return result
 
     async def _close(self, timeout):
-        return await self._send('close', None, timeout)
+        result = await self._send('close', None, timeout)
+        self._use = False
+        return result
 
     async def _echo(self, args, timeout):
         return await self._send('echo', args, timeout)
@@ -68,13 +84,18 @@ class Channel:
         return await self._send('call', {'name': name, 'args': args}, timeout)
 
     async def _send(self, body_type, input, timeout):
-        future = await self.server._send(body_type, input, id(self), timeout)
+        if self._server is None:
+            raise StateError('Channel is destroyed')
+
+        future = await self._server._send(body_type, input, id(self), timeout)
 
         try:
             return await future
         except StateError:
+            logging.warning('Channel is closed: trying to open...')
+
             await self._open(timeout)
 
-            future = await self.server._send(body_type, input, id(self), timeout)
+            future = await self._server._send(body_type, input, id(self), timeout)
 
             return await future

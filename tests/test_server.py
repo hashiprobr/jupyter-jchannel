@@ -5,7 +5,7 @@ import pytest
 
 from unittest.mock import Mock, call
 from aiohttp import ClientSession
-from jchannel.error import StateError, JavascriptError
+from jchannel.types import StateError, JavascriptError
 from jchannel.server import Server, DebugScenario
 
 
@@ -142,15 +142,19 @@ async def test_starts_twice_and_stops_twice(s):
     await task
 
 
+async def test_does_not_send_with_non_integer_timeout(s):
+    with pytest.raises(TypeError):
+        await send(s, '', timeout='3')
+
+
+async def test_does_not_send_with_negative_timeout(s):
+    with pytest.raises(ValueError):
+        await send(s, '', timeout=-1)
+
+
 async def test_does_not_send(s):
     with pytest.raises(StateError):
         await send(s, '')
-
-
-async def test_starts_does_not_send_and_stops(s):
-    with pytest.raises(StateError):
-        async with s as server:
-            await send(server, '', timeout=0)
 
 
 async def test_starts_stops_and_does_not_send(s):
@@ -159,6 +163,12 @@ async def test_starts_stops_and_does_not_send(s):
     with pytest.raises(StateError):
         await send(s, '')
     await task
+
+
+async def test_starts_does_not_send_and_stops(s):
+    with pytest.raises(StateError):
+        async with s as server:
+            await send(server, '', timeout=0)
 
 
 class Client:
@@ -221,7 +231,7 @@ class Client:
 
 class MockChannel:
     def __init__(self, server, code):
-        server.channels[CHANNEL_KEY] = self
+        server._channels[CHANNEL_KEY] = self
         assert code == '() => { }'
 
     def _handle_call(self, name, args):

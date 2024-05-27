@@ -5,7 +5,7 @@ import logging
 from enum import Enum, auto
 from inspect import isawaitable
 from aiohttp import web, WSMsgType
-from jchannel.error import StateError, JavascriptError
+from jchannel.types import StateError, JavascriptError, AbstractServer
 from jchannel.registry import Registry
 from jchannel.channel import Channel
 from jchannel.frontend import frontend
@@ -49,7 +49,7 @@ class DebugSentinel:
             await asyncio.sleep(0)
 
 
-class Server:
+class Server(AbstractServer):
     def __init__(self, host='localhost', port=8889, url=None, heartbeat=30):
         if not isinstance(host, str):
             raise TypeError('Host must be a string')
@@ -110,7 +110,7 @@ class Server:
             self.sentinel = DebugSentinel()
 
         self.registry = Registry()
-        self.channels = {}
+        self._channels = {}
 
     def start(self):
         return asyncio.create_task(self._start())
@@ -251,6 +251,12 @@ class Server:
         await socket.send_str(data)
 
     async def _send(self, body_type, input, channel_key, timeout):
+        if not isinstance(timeout, int):
+            raise TypeError('Timeout must be an integer')
+
+        if timeout < 0:
+            raise ValueError('Timeout must be non-negative')
+
         if self.connection is None:
             socket = None
         else:
@@ -353,7 +359,7 @@ class Server:
                             case _:
                                 input = json.loads(payload)
 
-                                channel = self.channels[channel_key]
+                                channel = self._channels[channel_key]
 
                                 try:
                                     match body_type:

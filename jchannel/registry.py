@@ -1,17 +1,17 @@
 class Registry:
     def __init__(self):
-        self.futures = {}
+        self._futures = {}
 
     def store(self, future):
         key = id(future)
-        self.futures[key] = future
+        self._futures[key] = future
         return key
 
     def retrieve(self, key):
-        return self.futures.pop(key)
+        return self._futures.pop(key)
 
     def clear(self):
-        keys = list(self.futures.keys())
+        keys = list(self._futures.keys())
         for key in keys:
-            future = self.futures.pop(key)
+            future = self._futures.pop(key)
             future.cancel('Server disconnected')
