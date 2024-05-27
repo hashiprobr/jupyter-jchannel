@@ -13,6 +13,5 @@ class IPythonFrontend(AbstractFrontend):
             display(self.output)
 
         with self.output:
-            element = Javascript(code)
-            display(element)
+            display(Javascript(code))
             clear_output()
