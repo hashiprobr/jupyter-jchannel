@@ -16,7 +16,7 @@ class AbstractFrontend(ABC):
         self.url = url
 
     def run(self, code):
-        return self._run(f'''
+        self._run(f'''
             const promise = new Promise((resolve, reject) => {{
                 if (window.jchannel) {{
                     resolve();

@@ -15,5 +15,5 @@ class AbstractServer(ABC):
     @abstractmethod
     async def _send(self, body_type, input, channel_key, timeout):
         '''
-        Sends socket message.
+        Sends WebSocket message.
         '''
