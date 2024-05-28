@@ -176,8 +176,6 @@ class Server(AbstractServer):
                 if not self._connection.done():
                     self._connection.set_result(None)
 
-            self._registry.clear()
-
             if self._disconnection is not None:
                 if self._disconnection.done():
                     restarting = self._disconnection.result()
@@ -217,6 +215,8 @@ class Server(AbstractServer):
 
                 if __debug__:  # pragma: no cover
                     await self._sentinel.set_and_yield(DebugScenario.READ_CONNECTION_REFERENCE_AFTER_REFERENCE_IS_NONE)
+
+            self._registry.clear()
 
         if __debug__:  # pragma: no cover
             await self._sentinel.wait_on_count(DebugScenario.RECEIVE_SOCKET_REQUEST_BEFORE_SERVER_IS_STOPPED, 1)
@@ -388,8 +388,6 @@ class Server(AbstractServer):
                     logging.exception('Caught unexpected exception')
 
                 request.app.socket = None
-
-                self._registry.clear()
 
                 if self._disconnection is not None:
                     if __debug__:  # pragma: no cover

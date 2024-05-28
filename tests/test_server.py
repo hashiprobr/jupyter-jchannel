@@ -8,16 +8,15 @@ from aiohttp import ClientSession
 from jchannel.types import JavascriptError, StateError
 from jchannel.server import Server, DebugScenario
 
+pytestmark = pytest.mark.asyncio(scope='module')
+
 
 HOST = 's'
 PORT = 0
 HEARTBEAT = 1
 
-FUTURE_KEY = 0
-CHANNEL_KEY = 1
-
-
-pytestmark = pytest.mark.asyncio(scope='module')
+FUTURE_KEY = 123
+CHANNEL_KEY = 456
 
 
 async def test_instantiates():
@@ -295,7 +294,7 @@ async def test_connects_disconnects_does_not_stop_and_stops(caplog, server_with_
         with pytest.raises(StateError):
             await s.stop()
         await s.stop()
-        s._registry.clear.assert_has_calls(3 * [call()])
+        s._registry.clear.assert_has_calls(2 * [call()])
     assert len(caplog.records) == 1
 
 
