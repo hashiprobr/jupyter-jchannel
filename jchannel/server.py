@@ -92,24 +92,24 @@ class Server(AbstractServer):
         if heartbeat <= 0:
             raise ValueError('Heartbeat must be positive')
 
-        self.host = host
-        self.port = port
-        self.url = url
-        self.heartbeat = heartbeat
-        self.cleaned = None
+        self._host = host
+        self._port = port
+        self._url = url
+        self._heartbeat = heartbeat
+        self._cleaned = None
 
         # None: user stoppage
         # web.WebSocketResponse: client connection
-        self.connection = None
+        self._connection = None
 
         # False: user stoppage
         # True: client disconnection
-        self.disconnection = None
+        self._disconnection = None
 
         if __debug__:  # pragma: no cover
-            self.sentinel = DebugSentinel()
+            self._sentinel = DebugSentinel()
 
-        self.registry = Registry()
+        self._registry = Registry()
         self._channels = {}
 
     def start(self):
@@ -119,7 +119,7 @@ class Server(AbstractServer):
         return asyncio.create_task(self._stop())
 
     def load(self):
-        frontend.run(f"jchannel.start('{self.url}')")
+        frontend.run(f"jchannel.start('{self._url}')")
 
     def open(self, code, timeout=3):
         channel = Channel(self, code)
@@ -135,15 +135,15 @@ class Server(AbstractServer):
         return False
 
     async def _start(self, scenario=None):
-        if self.cleaned is None:
-            self.cleaned = asyncio.Event()
+        if self._cleaned is None:
+            self._cleaned = asyncio.Event()
 
             loop = asyncio.get_running_loop()
-            self.connection = loop.create_future()
-            self.disconnection = loop.create_future()
+            self._connection = loop.create_future()
+            self._disconnection = loop.create_future()
 
             if __debug__:  # pragma: no cover
-                self.sentinel.enable(scenario)
+                self._sentinel.enable(scenario)
 
             app = web.Application()
 
@@ -160,7 +160,7 @@ class Server(AbstractServer):
             runner = web.AppRunner(app)
             await runner.setup()
 
-            site = web.TCPSite(runner, self.host, self.port)
+            site = web.TCPSite(runner, self._host, self._port)
             await site.start()
 
             asyncio.create_task(self._run(runner, site))
@@ -168,65 +168,65 @@ class Server(AbstractServer):
             self.load()
 
     async def _stop(self):
-        if self.cleaned is not None:
+        if self._cleaned is not None:
             if __debug__:  # pragma: no cover
-                await self.sentinel.wait_on_count(DebugScenario.READ_CONNECTION_REFERENCE_AFTER_REFERENCE_IS_NONE, 2)
+                await self._sentinel.wait_on_count(DebugScenario.READ_CONNECTION_REFERENCE_AFTER_REFERENCE_IS_NONE, 2)
 
-            if self.connection is not None:
-                if not self.connection.done():
-                    self.connection.set_result(None)
+            if self._connection is not None:
+                if not self._connection.done():
+                    self._connection.set_result(None)
 
-            self.registry.clear()
+            self._registry.clear()
 
-            if self.disconnection is not None:
-                if self.disconnection.done():
-                    restarting = self.disconnection.result()
+            if self._disconnection is not None:
+                if self._disconnection.done():
+                    restarting = self._disconnection.result()
 
                     if __debug__:  # pragma: no cover
-                        await self.sentinel.set_and_yield(DebugScenario.READ_DISCONNECTION_RESULT_BEFORE_OBJECT_IS_REPLACED)
+                        await self._sentinel.set_and_yield(DebugScenario.READ_DISCONNECTION_RESULT_BEFORE_OBJECT_IS_REPLACED)
 
                     if restarting:
                         raise StateError('Cannot stop server while restarting')
                 else:
-                    self.disconnection.set_result(False)
+                    self._disconnection.set_result(False)
 
-            await self.cleaned.wait()
+            await self._cleaned.wait()
 
     async def _run(self, runner, site):
         restarting = True
 
         while restarting:
-            restarting = await self.disconnection
+            restarting = await self._disconnection
 
             if __debug__:  # pragma: no cover
-                await self.sentinel.set_and_yield(DebugScenario.READ_DISCONNECTION_STATE_AFTER_RESULT_IS_SET)
+                await self._sentinel.set_and_yield(DebugScenario.READ_DISCONNECTION_STATE_AFTER_RESULT_IS_SET)
 
             if restarting:
                 if __debug__:  # pragma: no cover
-                    await self.sentinel.wait_on_count(DebugScenario.READ_DISCONNECTION_RESULT_BEFORE_OBJECT_IS_REPLACED, 1)
+                    await self._sentinel.wait_on_count(DebugScenario.READ_DISCONNECTION_RESULT_BEFORE_OBJECT_IS_REPLACED, 1)
 
                 loop = asyncio.get_running_loop()
-                self.connection = loop.create_future()
-                self.disconnection = loop.create_future()
+                self._connection = loop.create_future()
+                self._disconnection = loop.create_future()
             else:
                 if __debug__:  # pragma: no cover
-                    await self.sentinel.wait_on_count(DebugScenario.READ_CONNECTION_RESULT_BEFORE_REFERENCE_IS_NONE, 1)
+                    await self._sentinel.wait_on_count(DebugScenario.READ_CONNECTION_RESULT_BEFORE_REFERENCE_IS_NONE, 1)
 
-                self.connection = None
-                self.disconnection = None
+                self._connection = None
+                self._disconnection = None
 
                 if __debug__:  # pragma: no cover
-                    await self.sentinel.set_and_yield(DebugScenario.READ_CONNECTION_REFERENCE_AFTER_REFERENCE_IS_NONE)
+                    await self._sentinel.set_and_yield(DebugScenario.READ_CONNECTION_REFERENCE_AFTER_REFERENCE_IS_NONE)
 
         if __debug__:  # pragma: no cover
-            await self.sentinel.wait_on_count(DebugScenario.RECEIVE_SOCKET_REQUEST_BEFORE_SERVER_IS_STOPPED, 1)
-            await self.sentinel.wait_on_count(DebugScenario.RECEIVE_SOCKET_MESSAGE_BEFORE_SERVER_IS_STOPPED, 1)
+            await self._sentinel.wait_on_count(DebugScenario.RECEIVE_SOCKET_REQUEST_BEFORE_SERVER_IS_STOPPED, 1)
+            await self._sentinel.wait_on_count(DebugScenario.RECEIVE_SOCKET_MESSAGE_BEFORE_SERVER_IS_STOPPED, 1)
 
         await site.stop()
         await runner.cleanup()
 
-        self.cleaned.set()
-        self.cleaned = None
+        self._cleaned.set()
+        self._cleaned = None
 
     async def _open(self, channel, timeout):
         try:
@@ -257,13 +257,13 @@ class Server(AbstractServer):
         if timeout < 0:
             raise ValueError('Timeout must be non-negative')
 
-        if self.connection is None:
+        if self._connection is None:
             socket = None
         else:
             self.load()
 
             try:
-                socket = await asyncio.wait_for(asyncio.shield(self.connection), timeout)
+                socket = await asyncio.wait_for(asyncio.shield(self._connection), timeout)
             except asyncio.TimeoutError:
                 raise StateError('Client timed out: check the browser console for details')
 
@@ -272,7 +272,7 @@ class Server(AbstractServer):
 
         if not socket.prepared:
             if __debug__:  # pragma: no cover
-                await self.sentinel.set_and_yield(DebugScenario.READ_SOCKET_STATE_BEFORE_SOCKET_IS_PREPARED)
+                await self._sentinel.set_and_yield(DebugScenario.READ_SOCKET_STATE_BEFORE_SOCKET_IS_PREPARED)
 
             raise StateError('Server not prepared')
 
@@ -285,7 +285,7 @@ class Server(AbstractServer):
         future = loop.create_future()
 
         body = {
-            'future': self.registry.store(future),
+            'future': self._registry.store(future),
             'channel': channel_key,
             'payload': payload,
         }
@@ -300,28 +300,28 @@ class Server(AbstractServer):
 
     async def _handle_socket(self, request):
         if __debug__:  # pragma: no cover
-            await self.sentinel.set_and_yield(DebugScenario.RECEIVE_SOCKET_REQUEST_BEFORE_SERVER_IS_STOPPED)
+            await self._sentinel.set_and_yield(DebugScenario.RECEIVE_SOCKET_REQUEST_BEFORE_SERVER_IS_STOPPED)
 
-        if self.connection is None:
+        if self._connection is None:
             socket = await self._reject(request)
         else:
-            if self.connection.done():
-                socket = self.connection.result()
+            if self._connection.done():
+                socket = self._connection.result()
 
                 if __debug__:  # pragma: no cover
-                    await self.sentinel.set_and_yield(DebugScenario.READ_CONNECTION_RESULT_BEFORE_REFERENCE_IS_NONE)
+                    await self._sentinel.set_and_yield(DebugScenario.READ_CONNECTION_RESULT_BEFORE_REFERENCE_IS_NONE)
 
                 if socket is not None:
                     logging.warning('Received socket request while already connected')
 
                 socket = await self._reject(request)
             else:
-                socket = web.WebSocketResponse(heartbeat=self.heartbeat)
+                socket = web.WebSocketResponse(heartbeat=self._heartbeat)
 
-                self.connection.set_result(socket)
+                self._connection.set_result(socket)
 
                 if __debug__:  # pragma: no cover
-                    await self.sentinel.wait_on_count(DebugScenario.READ_SOCKET_STATE_BEFORE_SOCKET_IS_PREPARED, 1)
+                    await self._sentinel.wait_on_count(DebugScenario.READ_SOCKET_STATE_BEFORE_SOCKET_IS_PREPARED, 1)
 
                 await socket.prepare(request)
 
@@ -330,7 +330,7 @@ class Server(AbstractServer):
                 try:
                     async for message in socket:
                         if __debug__:  # pragma: no cover
-                            await self.sentinel.set_and_yield(DebugScenario.RECEIVE_SOCKET_MESSAGE_BEFORE_SERVER_IS_STOPPED)
+                            await self._sentinel.set_and_yield(DebugScenario.RECEIVE_SOCKET_MESSAGE_BEFORE_SERVER_IS_STOPPED)
 
                         if message.type != WSMsgType.TEXT:
                             raise TypeError(f'Received unexpected message type {message.type}')
@@ -346,15 +346,15 @@ class Server(AbstractServer):
                             case 'closed':
                                 logging.warning('Unexpected channel closure')
 
-                                future = self.registry.retrieve(future_key)
+                                future = self._registry.retrieve(future_key)
                                 future.set_exception(StateError)
                             case 'exception':
-                                future = self.registry.retrieve(future_key)
+                                future = self._registry.retrieve(future_key)
                                 future.set_exception(JavascriptError(payload))
                             case 'result':
                                 output = json.loads(payload)
 
-                                future = self.registry.retrieve(future_key)
+                                future = self._registry.retrieve(future_key)
                                 future.set_result(output)
                             case _:
                                 input = json.loads(payload)
@@ -389,16 +389,16 @@ class Server(AbstractServer):
 
                 request.app.socket = None
 
-                self.registry.clear()
+                self._registry.clear()
 
-                if self.disconnection is not None:
+                if self._disconnection is not None:
                     if __debug__:  # pragma: no cover
-                        await self.sentinel.wait_on_count(DebugScenario.READ_DISCONNECTION_STATE_AFTER_RESULT_IS_SET, 1)
+                        await self._sentinel.wait_on_count(DebugScenario.READ_DISCONNECTION_STATE_AFTER_RESULT_IS_SET, 1)
 
-                    if not self.disconnection.done():
+                    if not self._disconnection.done():
                         logging.warning('Unexpected client disconnection')
 
-                        self.disconnection.set_result(True)
+                        self._disconnection.set_result(True)
 
         return socket
 

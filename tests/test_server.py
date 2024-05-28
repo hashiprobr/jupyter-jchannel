@@ -22,7 +22,7 @@ pytestmark = pytest.mark.asyncio(scope='module')
 
 async def test_instantiates():
     server = Server(HOST, PORT, None, HEARTBEAT)
-    assert server.url == 'ws://s:0'
+    assert server._url == 'ws://s:0'
 
 
 @pytest.mark.parametrize('input, output', [
@@ -59,7 +59,7 @@ async def test_instantiates():
 ])
 async def test_instantiates_with_url(input, output):
     server = Server(HOST, PORT, input, HEARTBEAT)
-    assert server.url == output
+    assert server._url == output
 
 
 async def test_does_not_instantiate_with_non_string_host():
@@ -295,7 +295,7 @@ async def test_connects_disconnects_does_not_stop_and_stops(caplog, server_with_
         with pytest.raises(StateError):
             await s.stop()
         await s.stop()
-        s.registry.clear.assert_has_calls(3 * [call()])
+        s._registry.clear.assert_has_calls(3 * [call()])
     assert len(caplog.records) == 1
 
 
