@@ -375,10 +375,18 @@ class Server(AbstractServer):
                                         case _:
                                             payload = f'Received unexpected body type {body_type}'
                                             body_type = 'exception'
-                                except:
+                                except Exception as error:
                                     logging.exception('Caught handler exception')
 
-                                    payload = 'Check the notebook log for details'
+                                    if error.args:
+                                        if len(error.args) == 1:
+                                            message = error.args[0]
+                                        else:
+                                            message = error.args
+                                    else:
+                                        message = 'Check the notebook log for details'
+
+                                    payload = f'{error.__class__.__name__}: {message}'
                                     body_type = 'exception'
 
                                 body['payload'] = payload
