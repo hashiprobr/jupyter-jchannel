@@ -284,18 +284,16 @@ def open(s, timeout=3):
     assert isinstance(channel, MockChannel)
 
 
-async def test_connects_disconnects_does_not_stop_and_stops(caplog, server_with_client):
-    with caplog.at_level(logging.WARNING):
-        s, c = server_with_client
-        await s._start(DebugScenario.READ_DISCONNECTION_RESULT_BEFORE_OBJECT_IS_REPLACED)
-        await c.connection()
-        await send(s, 'socket-close')
-        await c.disconnection()
-        with pytest.raises(StateError):
-            await s.stop()
+async def test_connects_disconnects_does_not_stop_and_stops(server_with_client):
+    s, c = server_with_client
+    await s._start(DebugScenario.READ_DISCONNECTION_RESULT_BEFORE_OBJECT_IS_REPLACED)
+    await c.connection()
+    await send(s, 'socket-close')
+    await c.disconnection()
+    with pytest.raises(StateError):
         await s.stop()
-        s._registry.clear.assert_has_calls(2 * [call()])
-    assert len(caplog.records) == 1
+    await s.stop()
+    s._registry.clear.assert_has_calls(2 * [call()])
 
 
 async def test_connects_and_stops_twice(server_with_client):
@@ -392,16 +390,14 @@ async def test_receives_empty_body(caplog, server_with_client):
     assert len(caplog.records) == 1
 
 
-async def test_receives_closed(caplog, mock_future, server_with_client):
-    with caplog.at_level(logging.WARNING):
-        s, c = server_with_client
-        await s._start(DebugScenario.RECEIVE_SOCKET_MESSAGE_BEFORE_SERVER_IS_STOPPED)
-        await c.connection()
-        await send(s, 'mock-closed')
-        await s.stop()
-        await c.disconnection()
-        mock_future.set_exception.assert_called_once_with(StateError)
-    assert len(caplog.records) == 1
+async def test_receives_closed(mock_future, server_with_client):
+    s, c = server_with_client
+    await s._start(DebugScenario.RECEIVE_SOCKET_MESSAGE_BEFORE_SERVER_IS_STOPPED)
+    await c.connection()
+    await send(s, 'mock-closed')
+    await s.stop()
+    await c.disconnection()
+    mock_future.set_exception.assert_called_once_with(StateError)
 
 
 async def test_receives_exception(mock_future, server_with_client):

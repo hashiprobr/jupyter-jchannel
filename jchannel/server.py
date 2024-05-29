@@ -344,8 +344,6 @@ class Server(AbstractServer):
 
                         match body_type:
                             case 'closed':
-                                logging.warning('Unexpected channel closure')
-
                                 future = self._registry.retrieve(future_key)
                                 future.set_exception(StateError)
                             case 'exception':
@@ -376,24 +374,16 @@ class Server(AbstractServer):
                                             payload = f'Received unexpected body type {body_type}'
                                             body_type = 'exception'
                                 except Exception as error:
-                                    logging.exception('Caught handler exception')
+                                    logging.exception('Channel request exception')
 
-                                    if error.args:
-                                        if len(error.args) == 1:
-                                            message = error.args[0]
-                                        else:
-                                            message = error.args
-                                    else:
-                                        message = 'Check the notebook log for details'
-
-                                    payload = f'{error.__class__.__name__}: {message}'
+                                    payload = f'{error.__class__.__name__}: {str(error)}'
                                     body_type = 'exception'
 
                                 body['payload'] = payload
 
                                 await self._accept(socket, body_type, body)
                 except:
-                    logging.exception('Caught unexpected exception')
+                    logging.exception('Socket message exception')
 
                 request.app.socket = None
 
@@ -402,8 +392,6 @@ class Server(AbstractServer):
                         await self._sentinel.wait_on_count(DebugScenario.READ_DISCONNECTION_STATE_AFTER_RESULT_IS_SET, 1)
 
                     if not self._disconnection.done():
-                        logging.warning('Unexpected client disconnection')
-
                         self._disconnection.set_result(True)
 
         return socket
