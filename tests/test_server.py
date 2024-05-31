@@ -314,6 +314,31 @@ async def test_stops_and_does_not_connect(server_with_client):
     await c.disconnection()
 
 
+async def test_connects_does_not_start_and_stops(server_with_client):
+    s_0, c = server_with_client
+    s_1 = Server()
+    await s_0.start()
+    await c.connection()
+    with pytest.raises(OSError):
+        await s_1.start()
+    await s_0.stop()
+    await c.disconnection()
+
+
+async def test_connects_stops_and_does_not_start(server_with_client):
+    s_0, c = server_with_client
+    s_1 = Server()
+    await s_0.start()
+    await c.connection()
+    with pytest.raises(OSError):
+        task_start = s_1.start()
+        task_stop = s_1.stop()
+        await task_start
+        await task_stop
+    await s_0.stop()
+    await c.disconnection()
+
+
 async def test_connects_does_not_connect_and_stops(caplog, server_with_client):
     with caplog.at_level(logging.WARNING):
         s, c_0 = server_with_client

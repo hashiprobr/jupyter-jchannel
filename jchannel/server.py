@@ -96,7 +96,9 @@ class Server(AbstractServer):
         self._port = port
         self._url = url
         self._heartbeat = heartbeat
-        self._cleaned = None
+
+        self._cleaned = asyncio.Event()
+        self._cleaned.set()
 
         # None: user stoppage
         # web.WebSocketResponse: client connection
@@ -135,8 +137,8 @@ class Server(AbstractServer):
         return False
 
     async def _start(self, scenario=None):
-        if self._cleaned is None:
-            self._cleaned = asyncio.Event()
+        if self._cleaned.is_set():
+            self._cleaned.clear()
 
             loop = asyncio.get_running_loop()
             self._connection = loop.create_future()
@@ -161,14 +163,31 @@ class Server(AbstractServer):
             await runner.setup()
 
             site = web.TCPSite(runner, self._host, self._port)
-            await site.start()
+
+            try:
+                await site.start()
+            except OSError as error:
+                if not self._connection.done():
+                    self._connection.set_result(None)
+
+                if not self._disconnection.done():
+                    self._disconnection.set_result(False)
+
+                self._connection = None
+                self._disconnection = None
+
+                await runner.cleanup()
+
+                self._cleaned.set()
+
+                raise error
 
             asyncio.create_task(self._run(runner, site))
 
             self.load()
 
     async def _stop(self):
-        if self._cleaned is not None:
+        if not self._cleaned.is_set():
             if __debug__:  # pragma: no cover
                 await self._sentinel.wait_on_count(DebugScenario.READ_CONNECTION_REFERENCE_AFTER_REFERENCE_IS_NONE, 2)
 
@@ -223,10 +242,10 @@ class Server(AbstractServer):
             await self._sentinel.wait_on_count(DebugScenario.RECEIVE_SOCKET_MESSAGE_BEFORE_SERVER_IS_STOPPED, 1)
 
         await site.stop()
+
         await runner.cleanup()
 
         self._cleaned.set()
-        self._cleaned = None
 
     async def _open(self, channel, timeout):
         try:
@@ -265,7 +284,7 @@ class Server(AbstractServer):
             try:
                 socket = await asyncio.wait_for(asyncio.shield(self._connection), timeout)
             except asyncio.TimeoutError:
-                raise StateError('Client timed out: check the browser console for details')
+                raise StateError('Client timed out: check the browser console for details') from None
 
         if socket is None:
             raise StateError('Server not running')
