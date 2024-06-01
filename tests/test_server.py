@@ -249,19 +249,19 @@ class MockChannel:
 
 
 @pytest.fixture
-def mock_future():
+def future():
     return Mock()
 
 
 @pytest.fixture
-def server_with_client(mocker, mock_future):
+def server_with_client(mocker, future):
     registry = Mock()
 
     Registry = mocker.patch('jchannel.server.Registry')
     Registry.return_value = registry
 
     registry.store.return_value = FUTURE_KEY
-    registry.retrieve.return_value = mock_future
+    registry.retrieve.return_value = future
 
     Channel = mocker.patch('jchannel.server.Channel')
     Channel.side_effect = MockChannel
@@ -415,38 +415,38 @@ async def test_receives_empty_body(caplog, server_with_client):
     assert len(caplog.records) == 1
 
 
-async def test_receives_closed(mock_future, server_with_client):
+async def test_receives_closed(future, server_with_client):
     s, c = server_with_client
     await s._start(DebugScenario.RECEIVE_SOCKET_MESSAGE_BEFORE_SERVER_IS_STOPPED)
     await c.connection()
     await send(s, 'mock-closed')
     await s.stop()
     await c.disconnection()
-    mock_future.set_exception.assert_called_once_with(StateError)
+    future.set_exception.assert_called_once_with(StateError)
 
 
-async def test_receives_exception(mock_future, server_with_client):
+async def test_receives_exception(future, server_with_client):
     s, c = server_with_client
     await s._start(DebugScenario.RECEIVE_SOCKET_MESSAGE_BEFORE_SERVER_IS_STOPPED)
     await c.connection()
     await send(s, 'mock-exception')
     await s.stop()
     await c.disconnection()
-    args, _ = mock_future.set_exception.call_args
+    args, _ = future.set_exception.call_args
     error, = args
     assert isinstance(error, JavascriptError)
     message, = error.args
     assert isinstance(message, str)
 
 
-async def test_receives_result(mock_future, server_with_client):
+async def test_receives_result(future, server_with_client):
     s, c = server_with_client
     await s._start(DebugScenario.RECEIVE_SOCKET_MESSAGE_BEFORE_SERVER_IS_STOPPED)
     await c.connection()
     await send(s, 'mock-result')
     await s.stop()
     await c.disconnection()
-    args, _ = mock_future.set_result.call_args
+    args, _ = future.set_result.call_args
     output, = args
     assert output == 0
 
