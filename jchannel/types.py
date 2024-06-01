@@ -10,8 +10,7 @@ class JavascriptError(Exception):
 
 
 class AbstractServer(ABC):
-    def __init__(self):
-        self._channels = {}
+    _channels: dict
 
     @abstractmethod
     async def _send(self, body_type, input, channel_key, timeout):
