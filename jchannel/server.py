@@ -112,7 +112,7 @@ class Server(AbstractServer):
             self._sentinel = DebugSentinel()
 
         self._registry = Registry()
-        self._channels = {}
+        super().__init__()
 
     def start(self):
         return asyncio.create_task(self._start())

@@ -19,7 +19,7 @@ async def test_does_not_instantiate():
 class Server(AbstractServer):
     def __init__(self):
         self._closed = False
-        self._channels = {}
+        super().__init__()
 
     async def _send(self, body_type, input, channel_key, timeout):
         loop = asyncio.get_running_loop()
