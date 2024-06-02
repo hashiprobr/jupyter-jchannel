@@ -21,40 +21,40 @@ CHANNEL_KEY = 456
 
 async def test_instantiates():
     server = Server(HOST, PORT, None, HEARTBEAT)
-    assert server._url == 'ws://s:0'
+    assert server._url == 'http://s:0'
 
 
 @pytest.mark.parametrize('input, output', [
-    ('ws://a', 'ws://a'),
-    ('ws://a/', 'ws://a'),
-    ('ws://a//', 'ws://a'),
-    ('ws:///a', 'ws:///a'),
-    ('ws:///a/', 'ws:///a'),
-    ('ws:///a//', 'ws:///a'),
-    ('ws:////a', 'ws:////a'),
-    ('ws:////a/', 'ws:////a'),
-    ('ws:////a//', 'ws:////a'),
-    ('ws://a/b', 'ws://a/b'),
-    ('ws://a/b/', 'ws://a/b'),
-    ('ws://a/b//', 'ws://a/b'),
-    ('ws://a//b', 'ws://a//b'),
-    ('ws://a//b/', 'ws://a//b'),
-    ('ws://a//b//', 'ws://a//b'),
-    ('wss://a', 'wss://a'),
-    ('wss://a/', 'wss://a'),
-    ('wss://a//', 'wss://a'),
-    ('wss:///a', 'wss:///a'),
-    ('wss:///a/', 'wss:///a'),
-    ('wss:///a//', 'wss:///a'),
-    ('wss:////a', 'wss:////a'),
-    ('wss:////a/', 'wss:////a'),
-    ('wss:////a//', 'wss:////a'),
-    ('wss://a/b', 'wss://a/b'),
-    ('wss://a/b/', 'wss://a/b'),
-    ('wss://a/b//', 'wss://a/b'),
-    ('wss://a//b', 'wss://a//b'),
-    ('wss://a//b/', 'wss://a//b'),
-    ('wss://a//b//', 'wss://a//b'),
+    ('http://a', 'http://a'),
+    ('http://a/', 'http://a'),
+    ('http://a//', 'http://a'),
+    ('http:///a', 'http:///a'),
+    ('http:///a/', 'http:///a'),
+    ('http:///a//', 'http:///a'),
+    ('http:////a', 'http:////a'),
+    ('http:////a/', 'http:////a'),
+    ('http:////a//', 'http:////a'),
+    ('http://a/b', 'http://a/b'),
+    ('http://a/b/', 'http://a/b'),
+    ('http://a/b//', 'http://a/b'),
+    ('http://a//b', 'http://a//b'),
+    ('http://a//b/', 'http://a//b'),
+    ('http://a//b//', 'http://a//b'),
+    ('https://a', 'https://a'),
+    ('https://a/', 'https://a'),
+    ('https://a//', 'https://a'),
+    ('https:///a', 'https:///a'),
+    ('https:///a/', 'https:///a'),
+    ('https:///a//', 'https:///a'),
+    ('https:////a', 'https:////a'),
+    ('https:////a/', 'https:////a'),
+    ('https:////a//', 'https:////a'),
+    ('https://a/b', 'https://a/b'),
+    ('https://a/b/', 'https://a/b'),
+    ('https://a/b//', 'https://a/b'),
+    ('https://a//b', 'https://a//b'),
+    ('https://a//b/', 'https://a//b'),
+    ('https://a//b//', 'https://a//b'),
 ])
 async def test_instantiates_with_url(input, output):
     server = Server(HOST, PORT, input, HEARTBEAT)
@@ -81,14 +81,14 @@ async def test_does_not_instantiate_with_non_string_url():
         Server(HOST, PORT, 0, HEARTBEAT)
 
 
-async def test_does_not_instantiate_with_non_ws_url_start():
+async def test_does_not_instantiate_with_non_http_url_start():
     with pytest.raises(ValueError):
-        Server(HOST, PORT, 'http://a', HEARTBEAT)
+        Server(HOST, PORT, 'ws://a', HEARTBEAT)
 
 
 @pytest.mark.parametrize('url', [
-    'ws:/a',
-    'wss:/a',
+    'http:/a',
+    'https:/a',
 ])
 async def test_does_not_instantiate_with_invalid_url_start(url):
     with pytest.raises(ValueError):
@@ -96,12 +96,12 @@ async def test_does_not_instantiate_with_invalid_url_start(url):
 
 
 @pytest.mark.parametrize('url', [
-    'ws://',
-    'ws:///',
-    'ws:////',
-    'wss://',
-    'wss:///',
-    'wss:////',
+    'http://',
+    'http:///',
+    'http:////',
+    'https://',
+    'https:///',
+    'https:////',
 ])
 async def test_does_not_instantiate_with_empty_url_authority(url):
     with pytest.raises(ValueError):
@@ -270,7 +270,7 @@ def server_with_client(mocker, future):
     c = Client()
 
     def side_effect(code):
-        assert code == "jchannel.start('ws://localhost:8889')"
+        assert code == "jchannel.start('http://localhost:8889')"
         c.start()
 
     frontend = mocker.patch('jchannel.server.frontend')

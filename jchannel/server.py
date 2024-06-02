@@ -61,21 +61,21 @@ class Server(AbstractServer):
             raise ValueError('Port must be non-negative')
 
         if url is None:
-            url = f'ws://{host}:{port}'
+            url = f'http://{host}:{port}'
         else:
             if not isinstance(url, str):
                 raise TypeError('URL must be a string')
 
-            if not url.startswith('ws'):
-                raise ValueError('URL must start with ws')
+            if not url.startswith('http'):
+                raise ValueError('URL must start with http')
 
-            if url[2] == 's':
-                start = 6
+            if url[4] == 's':
+                start = 8
             else:
-                start = 5
+                start = 7
 
             if url[(start - 3):start] != '://':
-                raise ValueError('URL must start with ws:// or wss://')
+                raise ValueError('URL must start with http:// or https://')
 
             end = len(url) - 1
             while end >= start and url[end] == '/':

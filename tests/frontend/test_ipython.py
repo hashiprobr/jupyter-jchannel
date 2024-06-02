@@ -20,5 +20,5 @@ def test_runs_twice(mocker):
     display = mocker.patch('jchannel.frontend.ipython.display')
     display.side_effect = side_effect
 
-    frontend.run("jchannel.start('ws://localhost:8889/socket')")
-    frontend.run("jchannel.stop('ws://localhost:8889/socket')")
+    frontend.run("jchannel.start('http://localhost:8889/socket')")
+    frontend.run("jchannel.stop('http://localhost:8889/socket')")

@@ -10,7 +10,7 @@ pytestmark = pytest.mark.asyncio(scope='module')
 
 HOST = '127.0.0.1'
 PORT = 8888
-URL = 'ws://localhost:8889'
+URL = 'http://localhost:8889'
 HEARTBEAT = 3
 
 
