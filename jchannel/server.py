@@ -77,12 +77,12 @@ class Server(AbstractServer):
             if url[(start - 3):start] != '://':
                 raise ValueError('URL must start with http:// or https://')
 
+            if start == len(url) or url[start] == '/':
+                raise ValueError('URL authority cannot be empty')
+
             end = len(url) - 1
             while end >= start and url[end] == '/':
                 end -= 1
-
-            if end < start:
-                raise ValueError('URL authority cannot be empty')
 
             url = url[:(end + 1)]
 
