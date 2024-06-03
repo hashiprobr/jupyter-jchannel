@@ -32,7 +32,7 @@ class DebugSentinel:
     def __init__(self):
         self.event = None
 
-    def enable(self, scenario):
+    def activate(self, scenario):
         if scenario is not None:
             self.event = DebugEvent(scenario)
 
@@ -45,7 +45,6 @@ class DebugSentinel:
     async def set_and_yield(self, scenario):
         if self.event is not None and self.event.scenario == scenario:
             self.event.set()
-            self.event = None
             await asyncio.sleep(0)
 
 
@@ -145,7 +144,7 @@ class Server(AbstractServer):
             self._disconnection = loop.create_future()
 
             if __debug__:  # pragma: no cover
-                self._sentinel.enable(scenario)
+                self._sentinel.activate(scenario)
 
             app = web.Application()
 
