@@ -250,7 +250,11 @@ async def test_does_not_instantiate_with_non_positive_heartbeat():
 
 @pytest.fixture
 def s(mocker):
-    mocker.patch('jchannel.server.frontend')
+    def side_effect(code):
+        assert code == "jchannel.start('http://localhost:8889')" or code == "jchannel.stop('http://localhost:8889')"
+
+    frontend = mocker.patch('jchannel.server.frontend')
+    frontend.run.side_effect = side_effect
 
     return Server()
 
@@ -259,7 +263,8 @@ async def send(s, body_type, input=None, timeout=3):
     await s._send(body_type, input, CHANNEL_KEY, timeout)
 
 
-async def test_stops(s):
+async def test_stops_client_and_stops(s):
+    s.stop_client()
     await s.stop()
 
 
@@ -273,31 +278,31 @@ async def test_starts_twice_and_stops_twice(s):
 
 async def test_does_not_send_with_non_integer_timeout(s):
     with pytest.raises(TypeError):
-        await send(s, '', timeout='3')
+        await send(s, 'close', timeout='3')
 
 
 async def test_does_not_send_with_negative_timeout(s):
     with pytest.raises(ValueError):
-        await send(s, '', timeout=-1)
+        await send(s, 'close', timeout=-1)
 
 
 async def test_does_not_send(s):
     with pytest.raises(StateError):
-        await send(s, '')
+        await send(s, 'close')
 
 
 async def test_starts_stops_and_does_not_send(s):
     await s.start()
     task = s.stop()
     with pytest.raises(StateError):
-        await send(s, '')
+        await send(s, 'close')
     await task
 
 
 async def test_starts_does_not_send_and_stops(s):
     with pytest.raises(StateError):
         async with s as server:
-            await send(server, '', timeout=0)
+            await send(server, 'close', timeout=0)
 
 
 class Client:
@@ -384,7 +389,7 @@ def future():
 
 
 @pytest.fixture
-def server_with_client(mocker, future):
+def server_and_client(mocker, future):
     registry = Mock()
 
     Registry = mocker.patch('jchannel.server.Registry')
@@ -400,7 +405,6 @@ def server_with_client(mocker, future):
     c = Client()
 
     def side_effect(code):
-        assert code == "jchannel.start('http://localhost:8889')"
         c.start()
 
     frontend = mocker.patch('jchannel.server.frontend')
@@ -414,8 +418,8 @@ def open(s, timeout=3):
     assert isinstance(channel, MockChannel)
 
 
-async def test_connects_disconnects_does_not_stop_and_stops(server_with_client):
-    s, c = server_with_client
+async def test_connects_disconnects_does_not_stop_and_stops(server_and_client):
+    s, c = server_and_client
     await s._start(DebugScenario.READ_DISCONNECTION_RESULT_BEFORE_OBJECT_IS_REPLACED)
     await c.connection()
     await send(s, 'socket-close')
@@ -426,8 +430,8 @@ async def test_connects_disconnects_does_not_stop_and_stops(server_with_client):
     s._registry.clear.assert_has_calls(2 * [call()])
 
 
-async def test_connects_and_stops_twice(server_with_client):
-    s, c = server_with_client
+async def test_connects_and_stops_twice(server_and_client):
+    s, c = server_and_client
     await s._start(DebugScenario.READ_CONNECTION_REFERENCE_AFTER_REFERENCE_IS_NONE)
     await c.connection()
     task = s.stop()
@@ -436,16 +440,16 @@ async def test_connects_and_stops_twice(server_with_client):
     await c.disconnection()
 
 
-async def test_stops_and_does_not_connect(server_with_client):
-    s, c = server_with_client
+async def test_stops_and_does_not_connect(server_and_client):
+    s, c = server_and_client
     await s._start(DebugScenario.READ_CONNECTION_RESULT_BEFORE_REFERENCE_IS_NONE)
     await s.stop()
     await c.connection()
     await c.disconnection()
 
 
-async def test_connects_does_not_start_and_stops(server_with_client):
-    s_0, c = server_with_client
+async def test_connects_does_not_start_and_stops(server_and_client):
+    s_0, c = server_and_client
     s_1 = Server()
     await s_0.start()
     await c.connection()
@@ -455,8 +459,8 @@ async def test_connects_does_not_start_and_stops(server_with_client):
     await c.disconnection()
 
 
-async def test_connects_stops_and_does_not_start(server_with_client):
-    s_0, c = server_with_client
+async def test_connects_stops_and_does_not_start(server_and_client):
+    s_0, c = server_and_client
     s_1 = Server()
     await s_0.start()
     await c.connection()
@@ -469,9 +473,9 @@ async def test_connects_stops_and_does_not_start(server_with_client):
     await c.disconnection()
 
 
-async def test_connects_does_not_connect_and_stops(caplog, server_with_client):
+async def test_connects_does_not_connect_and_stops(caplog, server_and_client):
     with caplog.at_level(logging.WARNING):
-        s, c_0 = server_with_client
+        s, c_0 = server_and_client
         c_1 = Client()
         await s.start()
         c_1.start()
@@ -483,16 +487,16 @@ async def test_connects_does_not_connect_and_stops(caplog, server_with_client):
     assert len(caplog.records) == 1
 
 
-async def test_does_not_connect_and_stops(server_with_client):
-    s, c = server_with_client
+async def test_does_not_connect_and_stops(server_and_client):
+    s, c = server_and_client
     await s._start(DebugScenario.RECEIVE_SOCKET_REQUEST_BEFORE_SERVER_IS_STOPPED)
     await s.stop()
     await c.connection()
     await c.disconnection()
 
 
-async def test_connects_disconnects_does_not_send_and_stops(server_with_client):
-    s, c = server_with_client
+async def test_connects_disconnects_does_not_send_and_stops(server_and_client):
+    s, c = server_and_client
     await s._start(DebugScenario.READ_DISCONNECTION_STATE_AFTER_RESULT_IS_SET)
     await c.connection()
     await send(s, 'socket-close')
@@ -502,8 +506,8 @@ async def test_connects_disconnects_does_not_send_and_stops(server_with_client):
     await s.stop()
 
 
-async def test_does_not_send_connects_and_stops(server_with_client):
-    s, c = server_with_client
+async def test_does_not_send_connects_and_stops(server_and_client):
+    s, c = server_and_client
     await s._start(DebugScenario.READ_SOCKET_STATE_BEFORE_SOCKET_IS_PREPARED)
     with pytest.raises(StateError):
         await send(s, '')
@@ -512,9 +516,9 @@ async def test_does_not_send_connects_and_stops(server_with_client):
     await c.disconnection()
 
 
-async def test_receives_unexpected_message_type(caplog, server_with_client):
+async def test_receives_unexpected_message_type(caplog, server_and_client):
     with caplog.at_level(logging.ERROR):
-        s, c = server_with_client
+        s, c = server_and_client
         await s.start()
         await c.connection()
         await send(s, 'socket-bytes')
@@ -523,9 +527,9 @@ async def test_receives_unexpected_message_type(caplog, server_with_client):
     assert len(caplog.records) == 1
 
 
-async def test_receives_empty_message(caplog, server_with_client):
+async def test_receives_empty_message(caplog, server_and_client):
     with caplog.at_level(logging.ERROR):
-        s, c = server_with_client
+        s, c = server_and_client
         await s.start()
         await c.connection()
         await send(s, 'empty-message')
@@ -534,9 +538,9 @@ async def test_receives_empty_message(caplog, server_with_client):
     assert len(caplog.records) == 1
 
 
-async def test_receives_empty_body(caplog, server_with_client):
+async def test_receives_empty_body(caplog, server_and_client):
     with caplog.at_level(logging.ERROR):
-        s, c = server_with_client
+        s, c = server_and_client
         await s.start()
         await c.connection()
         await send(s, 'empty-body')
@@ -545,8 +549,8 @@ async def test_receives_empty_body(caplog, server_with_client):
     assert len(caplog.records) == 1
 
 
-async def test_receives_closed(future, server_with_client):
-    s, c = server_with_client
+async def test_receives_closed(future, server_and_client):
+    s, c = server_and_client
     await s._start(DebugScenario.RECEIVE_SOCKET_MESSAGE_BEFORE_SERVER_IS_STOPPED)
     await c.connection()
     await send(s, 'mock-closed')
@@ -555,8 +559,8 @@ async def test_receives_closed(future, server_with_client):
     future.set_exception.assert_called_once_with(StateError)
 
 
-async def test_receives_exception(future, server_with_client):
-    s, c = server_with_client
+async def test_receives_exception(future, server_and_client):
+    s, c = server_and_client
     await s._start(DebugScenario.RECEIVE_SOCKET_MESSAGE_BEFORE_SERVER_IS_STOPPED)
     await c.connection()
     await send(s, 'mock-exception')
@@ -569,8 +573,8 @@ async def test_receives_exception(future, server_with_client):
     assert isinstance(message, str)
 
 
-async def test_receives_result(future, server_with_client):
-    s, c = server_with_client
+async def test_receives_result(future, server_and_client):
+    s, c = server_and_client
     await s._start(DebugScenario.RECEIVE_SOCKET_MESSAGE_BEFORE_SERVER_IS_STOPPED)
     await c.connection()
     await send(s, 'mock-result')
@@ -581,9 +585,9 @@ async def test_receives_result(future, server_with_client):
     assert output == 0
 
 
-async def test_does_not_open(caplog, server_with_client):
+async def test_does_not_open(caplog, server_and_client):
     with caplog.at_level(logging.ERROR):
-        s, c = server_with_client
+        s, c = server_and_client
         await s.start()
         await c.connection()
         open(s, 0)
@@ -592,8 +596,8 @@ async def test_does_not_open(caplog, server_with_client):
     assert len(caplog.records) == 1
 
 
-async def test_echoes(server_with_client):
-    s, c = server_with_client
+async def test_echoes(server_and_client):
+    s, c = server_and_client
     await s.start()
     await c.connection()
     open(s)
@@ -607,8 +611,8 @@ async def test_echoes(server_with_client):
     assert c.body['future'] == FUTURE_KEY
 
 
-async def test_calls(server_with_client):
-    s, c = server_with_client
+async def test_calls(server_and_client):
+    s, c = server_and_client
     await s.start()
     await c.connection()
     open(s)
@@ -622,8 +626,8 @@ async def test_calls(server_with_client):
     assert c.body['future'] == FUTURE_KEY
 
 
-async def test_calls_async(server_with_client):
-    s, c = server_with_client
+async def test_calls_async(server_and_client):
+    s, c = server_and_client
     await s.start()
     await c.connection()
     open(s)
@@ -637,9 +641,9 @@ async def test_calls_async(server_with_client):
     assert c.body['future'] == FUTURE_KEY
 
 
-async def test_calls_error(caplog, server_with_client):
+async def test_calls_error(caplog, server_and_client):
     with caplog.at_level(logging.ERROR):
-        s, c = server_with_client
+        s, c = server_and_client
         await s.start()
         await c.connection()
         open(s)
@@ -654,8 +658,8 @@ async def test_calls_error(caplog, server_with_client):
     assert len(caplog.records) == 1
 
 
-async def test_receives_unexpected_body_type(server_with_client):
-    s, c = server_with_client
+async def test_receives_unexpected_body_type(server_and_client):
+    s, c = server_and_client
     await s.start()
     await c.connection()
     open(s)

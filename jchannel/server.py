@@ -32,7 +32,7 @@ class DebugSentinel:
     def __init__(self):
         self.event = None
 
-    def activate(self, scenario):
+    def watch(self, scenario):
         if scenario is not None:
             self.event = DebugEvent(scenario)
 
@@ -113,14 +113,17 @@ class Server(AbstractServer):
         self._registry = Registry()
         super().__init__()
 
+    def start_client(self):
+        frontend.run(f"jchannel.start('{self._url}')")
+
+    def stop_client(self):
+        frontend.run(f"jchannel.stop('{self._url}')")
+
     def start(self):
         return asyncio.create_task(self._start())
 
     def stop(self):
         return asyncio.create_task(self._stop())
-
-    def load(self):
-        frontend.run(f"jchannel.start('{self._url}')")
 
     def open(self, code, timeout=3):
         channel = Channel(self, code)
@@ -144,7 +147,7 @@ class Server(AbstractServer):
             self._disconnection = loop.create_future()
 
             if __debug__:  # pragma: no cover
-                self._sentinel.activate(scenario)
+                self._sentinel.watch(scenario)
 
             app = web.Application()
 
@@ -183,7 +186,7 @@ class Server(AbstractServer):
 
             asyncio.create_task(self._run(runner, site))
 
-            self.load()
+            self.start_client()
 
     async def _stop(self):
         if not self._cleaned.is_set():
@@ -278,7 +281,7 @@ class Server(AbstractServer):
         if self._connection is None:
             socket = None
         else:
-            self.load()
+            self.start_client()
 
             try:
                 socket = await asyncio.wait_for(asyncio.shield(self._connection), timeout)
