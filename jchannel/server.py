@@ -223,8 +223,6 @@ class Server(AbstractServer):
                 else:
                     self._disconnection.set_result(False)
 
-            frontend.run(f"jchannel._unload('{self._url}')")
-
             await self._cleaned.wait()
 
     async def _run(self, runner, site):
@@ -258,6 +256,8 @@ class Server(AbstractServer):
         if __debug__:  # pragma: no cover
             await self._sentinel.wait_on_count(DebugScenario.RECEIVE_SOCKET_REQUEST_BEFORE_SERVER_IS_STOPPED, 1)
             await self._sentinel.wait_on_count(DebugScenario.RECEIVE_SOCKET_MESSAGE_BEFORE_SERVER_IS_STOPPED, 1)
+
+        frontend.run(f"jchannel._unload('{self._url}')")
 
         await site.stop()
 
@@ -302,7 +302,7 @@ class Server(AbstractServer):
             try:
                 socket = await asyncio.wait_for(asyncio.shield(self._connection), timeout)
             except asyncio.TimeoutError:
-                raise StateError('Client timed out: check the browser console for details') from None
+                raise StateError('Server timed out') from None
 
         if socket is None:
             raise StateError('Server not running')
