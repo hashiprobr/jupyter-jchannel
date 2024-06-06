@@ -53,6 +53,17 @@ class Server(AbstractServer):
         if not isinstance(host, str):
             raise TypeError('Host must be a string')
 
+        host = host.strip()
+
+        if not host:
+            raise ValueError('Host cannot be blank')
+
+        if '/' in host:
+            raise ValueError('Host cannot have slashes')
+
+        if ':' in host:
+            raise ValueError('Host cannot have colons')
+
         if not isinstance(port, int):
             raise TypeError('Port must be an integer')
 
@@ -65,10 +76,12 @@ class Server(AbstractServer):
             if not isinstance(url, str):
                 raise TypeError('URL must be a string')
 
+            url = url.strip()
+
             if not url.startswith('http'):
                 raise ValueError('URL must start with http')
 
-            if url[4] == 's':
+            if url[4:5] == 's':
                 start = 8
             else:
                 start = 7
@@ -80,7 +93,7 @@ class Server(AbstractServer):
                 raise ValueError('URL authority cannot be empty')
 
             end = len(url) - 1
-            while end >= start and url[end] == '/':
+            while url[end] == '/':
                 end -= 1
 
             url = url[:(end + 1)]
@@ -162,6 +175,7 @@ class Server(AbstractServer):
             ])
 
             runner = web.AppRunner(app)
+
             await runner.setup()
 
             site = web.TCPSite(runner, self._host, self._port)
@@ -208,6 +222,8 @@ class Server(AbstractServer):
                         raise StateError('Cannot stop server while restarting')
                 else:
                     self._disconnection.set_result(False)
+
+            frontend.run(f"jchannel._unload('{self._url}')")
 
             await self._cleaned.wait()
 

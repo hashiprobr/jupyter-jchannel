@@ -11,7 +11,7 @@ from jchannel.server import Server, DebugScenario
 pytestmark = pytest.mark.asyncio(scope='module')
 
 
-HOST = '127.0.0.1'
+HOST = ' \t\n127.0.0.1 \t\n'
 PORT = 8888
 HEARTBEAT = 3
 
@@ -25,62 +25,62 @@ async def test_instantiates():
 
 
 @pytest.mark.parametrize('input, output', [
-    ('http://localhost:8889', 'http://localhost:8889'),
-    ('http://localhost:8889/', 'http://localhost:8889'),
-    ('http://localhost:8889//', 'http://localhost:8889'),
-    ('http://localhost:8889///', 'http://localhost:8889'),
-    ('http://localhost:8889/item', 'http://localhost:8889/item'),
-    ('http://localhost:8889/item/', 'http://localhost:8889/item'),
-    ('http://localhost:8889/item//', 'http://localhost:8889/item'),
-    ('http://localhost:8889/item///', 'http://localhost:8889/item'),
-    ('http://localhost:8889//item', 'http://localhost:8889//item'),
-    ('http://localhost:8889//item/', 'http://localhost:8889//item'),
-    ('http://localhost:8889//item//', 'http://localhost:8889//item'),
-    ('http://localhost:8889//item///', 'http://localhost:8889//item'),
-    ('http://localhost:8889///item', 'http://localhost:8889///item'),
-    ('http://localhost:8889///item/', 'http://localhost:8889///item'),
-    ('http://localhost:8889///item//', 'http://localhost:8889///item'),
-    ('http://localhost:8889///item///', 'http://localhost:8889///item'),
-    ('http://localhost:8889/item0/item1', 'http://localhost:8889/item0/item1'),
-    ('http://localhost:8889/item0/item1/', 'http://localhost:8889/item0/item1'),
-    ('http://localhost:8889/item0/item1//', 'http://localhost:8889/item0/item1'),
-    ('http://localhost:8889/item0/item1///', 'http://localhost:8889/item0/item1'),
-    ('http://localhost:8889//item0//item1', 'http://localhost:8889//item0//item1'),
-    ('http://localhost:8889//item0//item1/', 'http://localhost:8889//item0//item1'),
-    ('http://localhost:8889//item0//item1//', 'http://localhost:8889//item0//item1'),
-    ('http://localhost:8889//item0//item1///', 'http://localhost:8889//item0//item1'),
-    ('http://localhost:8889///item0///item1', 'http://localhost:8889///item0///item1'),
-    ('http://localhost:8889///item0///item1/', 'http://localhost:8889///item0///item1'),
-    ('http://localhost:8889///item0///item1//', 'http://localhost:8889///item0///item1'),
-    ('http://localhost:8889///item0///item1///', 'http://localhost:8889///item0///item1'),
-    ('https://localhost:8889', 'https://localhost:8889'),
-    ('https://localhost:8889/', 'https://localhost:8889'),
-    ('https://localhost:8889//', 'https://localhost:8889'),
-    ('https://localhost:8889///', 'https://localhost:8889'),
-    ('https://localhost:8889/item', 'https://localhost:8889/item'),
-    ('https://localhost:8889/item/', 'https://localhost:8889/item'),
-    ('https://localhost:8889/item//', 'https://localhost:8889/item'),
-    ('https://localhost:8889/item///', 'https://localhost:8889/item'),
-    ('https://localhost:8889//item', 'https://localhost:8889//item'),
-    ('https://localhost:8889//item/', 'https://localhost:8889//item'),
-    ('https://localhost:8889//item//', 'https://localhost:8889//item'),
-    ('https://localhost:8889//item///', 'https://localhost:8889//item'),
-    ('https://localhost:8889///item', 'https://localhost:8889///item'),
-    ('https://localhost:8889///item/', 'https://localhost:8889///item'),
-    ('https://localhost:8889///item//', 'https://localhost:8889///item'),
-    ('https://localhost:8889///item///', 'https://localhost:8889///item'),
-    ('https://localhost:8889/item0/item1', 'https://localhost:8889/item0/item1'),
-    ('https://localhost:8889/item0/item1/', 'https://localhost:8889/item0/item1'),
-    ('https://localhost:8889/item0/item1//', 'https://localhost:8889/item0/item1'),
-    ('https://localhost:8889/item0/item1///', 'https://localhost:8889/item0/item1'),
-    ('https://localhost:8889//item0//item1', 'https://localhost:8889//item0//item1'),
-    ('https://localhost:8889//item0//item1/', 'https://localhost:8889//item0//item1'),
-    ('https://localhost:8889//item0//item1//', 'https://localhost:8889//item0//item1'),
-    ('https://localhost:8889//item0//item1///', 'https://localhost:8889//item0//item1'),
-    ('https://localhost:8889///item0///item1', 'https://localhost:8889///item0///item1'),
-    ('https://localhost:8889///item0///item1/', 'https://localhost:8889///item0///item1'),
-    ('https://localhost:8889///item0///item1//', 'https://localhost:8889///item0///item1'),
-    ('https://localhost:8889///item0///item1///', 'https://localhost:8889///item0///item1'),
+    (' \t\nhttp://localhost:8889 \t\n', 'http://localhost:8889'),
+    (' \t\nhttp://localhost:8889/ \t\n', 'http://localhost:8889'),
+    (' \t\nhttp://localhost:8889// \t\n', 'http://localhost:8889'),
+    (' \t\nhttp://localhost:8889/// \t\n', 'http://localhost:8889'),
+    (' \t\nhttp://localhost:8889/item \t\n', 'http://localhost:8889/item'),
+    (' \t\nhttp://localhost:8889/item/ \t\n', 'http://localhost:8889/item'),
+    (' \t\nhttp://localhost:8889/item// \t\n', 'http://localhost:8889/item'),
+    (' \t\nhttp://localhost:8889/item/// \t\n', 'http://localhost:8889/item'),
+    (' \t\nhttp://localhost:8889//item \t\n', 'http://localhost:8889//item'),
+    (' \t\nhttp://localhost:8889//item/ \t\n', 'http://localhost:8889//item'),
+    (' \t\nhttp://localhost:8889//item// \t\n', 'http://localhost:8889//item'),
+    (' \t\nhttp://localhost:8889//item/// \t\n', 'http://localhost:8889//item'),
+    (' \t\nhttp://localhost:8889///item \t\n', 'http://localhost:8889///item'),
+    (' \t\nhttp://localhost:8889///item/ \t\n', 'http://localhost:8889///item'),
+    (' \t\nhttp://localhost:8889///item// \t\n', 'http://localhost:8889///item'),
+    (' \t\nhttp://localhost:8889///item/// \t\n', 'http://localhost:8889///item'),
+    (' \t\nhttp://localhost:8889/item0/item1 \t\n', 'http://localhost:8889/item0/item1'),
+    (' \t\nhttp://localhost:8889/item0/item1/ \t\n', 'http://localhost:8889/item0/item1'),
+    (' \t\nhttp://localhost:8889/item0/item1// \t\n', 'http://localhost:8889/item0/item1'),
+    (' \t\nhttp://localhost:8889/item0/item1/// \t\n', 'http://localhost:8889/item0/item1'),
+    (' \t\nhttp://localhost:8889//item0//item1 \t\n', 'http://localhost:8889//item0//item1'),
+    (' \t\nhttp://localhost:8889//item0//item1/ \t\n', 'http://localhost:8889//item0//item1'),
+    (' \t\nhttp://localhost:8889//item0//item1// \t\n', 'http://localhost:8889//item0//item1'),
+    (' \t\nhttp://localhost:8889//item0//item1/// \t\n', 'http://localhost:8889//item0//item1'),
+    (' \t\nhttp://localhost:8889///item0///item1 \t\n', 'http://localhost:8889///item0///item1'),
+    (' \t\nhttp://localhost:8889///item0///item1/ \t\n', 'http://localhost:8889///item0///item1'),
+    (' \t\nhttp://localhost:8889///item0///item1// \t\n', 'http://localhost:8889///item0///item1'),
+    (' \t\nhttp://localhost:8889///item0///item1/// \t\n', 'http://localhost:8889///item0///item1'),
+    (' \t\nhttps://localhost:8889 \t\n', 'https://localhost:8889'),
+    (' \t\nhttps://localhost:8889/ \t\n', 'https://localhost:8889'),
+    (' \t\nhttps://localhost:8889// \t\n', 'https://localhost:8889'),
+    (' \t\nhttps://localhost:8889/// \t\n', 'https://localhost:8889'),
+    (' \t\nhttps://localhost:8889/item \t\n', 'https://localhost:8889/item'),
+    (' \t\nhttps://localhost:8889/item/ \t\n', 'https://localhost:8889/item'),
+    (' \t\nhttps://localhost:8889/item// \t\n', 'https://localhost:8889/item'),
+    (' \t\nhttps://localhost:8889/item/// \t\n', 'https://localhost:8889/item'),
+    (' \t\nhttps://localhost:8889//item \t\n', 'https://localhost:8889//item'),
+    (' \t\nhttps://localhost:8889//item/ \t\n', 'https://localhost:8889//item'),
+    (' \t\nhttps://localhost:8889//item// \t\n', 'https://localhost:8889//item'),
+    (' \t\nhttps://localhost:8889//item/// \t\n', 'https://localhost:8889//item'),
+    (' \t\nhttps://localhost:8889///item \t\n', 'https://localhost:8889///item'),
+    (' \t\nhttps://localhost:8889///item/ \t\n', 'https://localhost:8889///item'),
+    (' \t\nhttps://localhost:8889///item// \t\n', 'https://localhost:8889///item'),
+    (' \t\nhttps://localhost:8889///item/// \t\n', 'https://localhost:8889///item'),
+    (' \t\nhttps://localhost:8889/item0/item1 \t\n', 'https://localhost:8889/item0/item1'),
+    (' \t\nhttps://localhost:8889/item0/item1/ \t\n', 'https://localhost:8889/item0/item1'),
+    (' \t\nhttps://localhost:8889/item0/item1// \t\n', 'https://localhost:8889/item0/item1'),
+    (' \t\nhttps://localhost:8889/item0/item1/// \t\n', 'https://localhost:8889/item0/item1'),
+    (' \t\nhttps://localhost:8889//item0//item1 \t\n', 'https://localhost:8889//item0//item1'),
+    (' \t\nhttps://localhost:8889//item0//item1/ \t\n', 'https://localhost:8889//item0//item1'),
+    (' \t\nhttps://localhost:8889//item0//item1// \t\n', 'https://localhost:8889//item0//item1'),
+    (' \t\nhttps://localhost:8889//item0//item1/// \t\n', 'https://localhost:8889//item0//item1'),
+    (' \t\nhttps://localhost:8889///item0///item1 \t\n', 'https://localhost:8889///item0///item1'),
+    (' \t\nhttps://localhost:8889///item0///item1/ \t\n', 'https://localhost:8889///item0///item1'),
+    (' \t\nhttps://localhost:8889///item0///item1// \t\n', 'https://localhost:8889///item0///item1'),
+    (' \t\nhttps://localhost:8889///item0///item1/// \t\n', 'https://localhost:8889///item0///item1'),
 ])
 async def test_instantiates_with_url(input, output):
     server = Server(HOST, PORT, input, HEARTBEAT)
@@ -89,12 +89,27 @@ async def test_instantiates_with_url(input, output):
 
 async def test_does_not_instantiate_with_non_string_host():
     with pytest.raises(TypeError):
-        Server(0, PORT, None, HEARTBEAT)
+        Server(True, PORT, None, HEARTBEAT)
+
+
+async def test_does_not_instantiate_with_blank_host():
+    with pytest.raises(ValueError):
+        Server(' \t\n', PORT, None, HEARTBEAT)
+
+
+async def test_does_not_instantiate_with_slash_host():
+    with pytest.raises(ValueError):
+        Server('127.0/0.1', PORT, None, HEARTBEAT)
+
+
+async def test_does_not_instantiate_with_colon_host():
+    with pytest.raises(ValueError):
+        Server('127.0:0.1', PORT, None, HEARTBEAT)
 
 
 async def test_does_not_instantiate_with_non_integer_port():
     with pytest.raises(TypeError):
-        Server(HOST, 's', None, HEARTBEAT)
+        Server(HOST, '8888', None, HEARTBEAT)
 
 
 async def test_does_not_instantiate_with_negative_port():
@@ -104,71 +119,27 @@ async def test_does_not_instantiate_with_negative_port():
 
 async def test_does_not_instantiate_with_non_string_url():
     with pytest.raises(TypeError):
-        Server(HOST, PORT, 0, HEARTBEAT)
-
-
-async def test_does_not_instantiate_with_non_http_url_start():
-    with pytest.raises(ValueError):
-        Server(HOST, PORT, 'ws://localhost:8889', HEARTBEAT)
+        Server(HOST, PORT, True, HEARTBEAT)
 
 
 @pytest.mark.parametrize('url', [
+    'ws://localhost:8889',
+    'wss://localhost:8889',
+])
+async def test_does_not_instantiate_with_non_http_url(url):
+    with pytest.raises(ValueError):
+        Server(HOST, PORT, url, HEARTBEAT)
+
+
+@pytest.mark.parametrize('url', [
+    'http',
+    'http:',
+    'http:/',
     'http:/localhost:8889',
-    'http:/localhost:8889/',
-    'http:/localhost:8889//',
-    'http:/localhost:8889///',
-    'http:/localhost:8889/item',
-    'http:/localhost:8889/item/',
-    'http:/localhost:8889/item//',
-    'http:/localhost:8889/item///',
-    'http:/localhost:8889//item',
-    'http:/localhost:8889//item/',
-    'http:/localhost:8889//item//',
-    'http:/localhost:8889//item///',
-    'http:/localhost:8889///item',
-    'http:/localhost:8889///item/',
-    'http:/localhost:8889///item//',
-    'http:/localhost:8889///item///',
-    'http:/localhost:8889/item0/item1',
-    'http:/localhost:8889/item0/item1/',
-    'http:/localhost:8889/item0/item1//',
-    'http:/localhost:8889/item0/item1///',
-    'http:/localhost:8889//item0//item1',
-    'http:/localhost:8889//item0//item1/',
-    'http:/localhost:8889//item0//item1//',
-    'http:/localhost:8889//item0//item1///',
-    'http:/localhost:8889///item0///item1',
-    'http:/localhost:8889///item0///item1/',
-    'http:/localhost:8889///item0///item1//',
-    'http:/localhost:8889///item0///item1///',
+    'https',
+    'https:',
+    'https:/',
     'https:/localhost:8889',
-    'https:/localhost:8889/',
-    'https:/localhost:8889//',
-    'https:/localhost:8889///',
-    'https:/localhost:8889/item',
-    'https:/localhost:8889/item/',
-    'https:/localhost:8889/item//',
-    'https:/localhost:8889/item///',
-    'https:/localhost:8889//item',
-    'https:/localhost:8889//item/',
-    'https:/localhost:8889//item//',
-    'https:/localhost:8889//item///',
-    'https:/localhost:8889///item',
-    'https:/localhost:8889///item/',
-    'https:/localhost:8889///item//',
-    'https:/localhost:8889///item///',
-    'https:/localhost:8889/item0/item1',
-    'https:/localhost:8889/item0/item1/',
-    'https:/localhost:8889/item0/item1//',
-    'https:/localhost:8889/item0/item1///',
-    'https:/localhost:8889//item0//item1',
-    'https:/localhost:8889//item0//item1/',
-    'https:/localhost:8889//item0//item1//',
-    'https:/localhost:8889//item0//item1///',
-    'https:/localhost:8889///item0///item1',
-    'https:/localhost:8889///item0///item1/',
-    'https:/localhost:8889///item0///item1//',
-    'https:/localhost:8889///item0///item1///',
 ])
 async def test_does_not_instantiate_with_invalid_url_start(url):
     with pytest.raises(ValueError):
@@ -178,60 +149,10 @@ async def test_does_not_instantiate_with_invalid_url_start(url):
 @pytest.mark.parametrize('url', [
     'http://',
     'http:///',
-    'http:////',
-    'http://///',
-    'http:///item',
-    'http:///item/',
-    'http:///item//',
-    'http:///item///',
-    'http:////item',
-    'http:////item/',
-    'http:////item//',
-    'http:////item///',
-    'http://///item',
-    'http://///item/',
-    'http://///item//',
-    'http://///item///',
-    'http:///item0/item1',
-    'http:///item0/item1/',
-    'http:///item0/item1//',
-    'http:///item0/item1///',
-    'http:////item0//item1',
-    'http:////item0//item1/',
-    'http:////item0//item1//',
-    'http:////item0//item1///',
-    'http://///item0///item1',
-    'http://///item0///item1/',
-    'http://///item0///item1//',
-    'http://///item0///item1///',
+    'http:///localhost:8889',
     'https://',
     'https:///',
-    'https:////',
-    'https://///',
-    'https:///item',
-    'https:///item/',
-    'https:///item//',
-    'https:///item///',
-    'https:////item',
-    'https:////item/',
-    'https:////item//',
-    'https:////item///',
-    'https://///item',
-    'https://///item/',
-    'https://///item//',
-    'https://///item///',
-    'https:///item0/item1',
-    'https:///item0/item1/',
-    'https:///item0/item1//',
-    'https:///item0/item1///',
-    'https:////item0//item1',
-    'https:////item0//item1/',
-    'https:////item0//item1//',
-    'https:////item0//item1///',
-    'https://///item0///item1',
-    'https://///item0///item1/',
-    'https://///item0///item1//',
-    'https://///item0///item1///',
+    'https:///localhost:8889',
 ])
 async def test_does_not_instantiate_with_empty_url_authority(url):
     with pytest.raises(ValueError):
@@ -240,7 +161,7 @@ async def test_does_not_instantiate_with_empty_url_authority(url):
 
 async def test_does_not_instantiate_with_non_integer_heartbeat():
     with pytest.raises(TypeError):
-        Server(HOST, PORT, None, 's')
+        Server(HOST, PORT, None, '3')
 
 
 async def test_does_not_instantiate_with_non_positive_heartbeat():
@@ -251,7 +172,11 @@ async def test_does_not_instantiate_with_non_positive_heartbeat():
 @pytest.fixture
 def s(mocker):
     def side_effect(code):
-        assert code == "jchannel.start('http://localhost:8889')" or code == "jchannel.stop('http://localhost:8889')"
+        assert code in [
+            "jchannel.start('http://localhost:8889')",
+            "jchannel.stop('http://localhost:8889')",
+            "jchannel._unload('http://localhost:8889')",
+        ]
 
     frontend = mocker.patch('jchannel.server.frontend')
     frontend.run.side_effect = side_effect
@@ -372,10 +297,10 @@ class MockChannel:
         if name == 'error':
             raise Exception
         if name == 'async':
-            return self.resolve(args)
+            return self._resolve(args)
         return args
 
-    async def resolve(self, args):
+    async def _resolve(self, args):
         return args
 
     async def _open(self, timeout):
@@ -405,7 +330,10 @@ def server_and_client(mocker, future):
     c = Client()
 
     def side_effect(code):
-        c.start()
+        if code == "jchannel.start('http://localhost:8889')":
+            c.start()
+        else:
+            assert code == "jchannel._unload('http://localhost:8889')"
 
     frontend = mocker.patch('jchannel.server.frontend')
     frontend.run.side_effect = side_effect
