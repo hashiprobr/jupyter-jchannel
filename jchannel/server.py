@@ -271,15 +271,6 @@ class Server(AbstractServer):
         except:
             logging.exception('Could not open channel')
 
-    async def _reject(self, request):
-        socket = web.WebSocketResponse()
-
-        await socket.prepare(request)
-
-        await socket.close()
-
-        return socket
-
     async def _accept(self, socket, body_type, body):
         body['type'] = body_type
 
@@ -340,96 +331,98 @@ class Server(AbstractServer):
             await self._sentinel.set_and_yield(DebugScenario.RECEIVE_SOCKET_REQUEST_BEFORE_SERVER_IS_STOPPED)
 
         if self._connection is None:
-            socket = await self._reject(request)
-        else:
-            if self._connection.done():
-                socket = self._connection.result()
+            return web.Response(status=404)
 
-                if __debug__:  # pragma: no cover
-                    await self._sentinel.set_and_yield(DebugScenario.READ_CONNECTION_RESULT_BEFORE_REFERENCE_IS_NONE)
+        if self._connection.done():
+            socket = self._connection.result()
 
-                if socket is not None:
-                    logging.warning('Received socket request while already connected')
+            if __debug__:  # pragma: no cover
+                await self._sentinel.set_and_yield(DebugScenario.READ_CONNECTION_RESULT_BEFORE_REFERENCE_IS_NONE)
 
-                socket = await self._reject(request)
+            if socket is None:
+                status = 404
             else:
-                socket = web.WebSocketResponse(heartbeat=self._heartbeat)
+                status = 409
 
-                self._connection.set_result(socket)
+            return web.Response(status=status)
 
+        socket = web.WebSocketResponse(heartbeat=self._heartbeat)
+
+        self._connection.set_result(socket)
+
+        if __debug__:  # pragma: no cover
+            await self._sentinel.wait_on_count(DebugScenario.READ_SOCKET_STATE_BEFORE_SOCKET_IS_PREPARED, 1)
+
+        await socket.prepare(request)
+
+        request.app.socket = socket
+
+        try:
+            async for message in socket:
                 if __debug__:  # pragma: no cover
-                    await self._sentinel.wait_on_count(DebugScenario.READ_SOCKET_STATE_BEFORE_SOCKET_IS_PREPARED, 1)
+                    await self._sentinel.set_and_yield(DebugScenario.RECEIVE_SOCKET_MESSAGE_BEFORE_SERVER_IS_STOPPED)
 
-                await socket.prepare(request)
+                if message.type != WSMsgType.TEXT:
+                    raise TypeError(f'Received unexpected message type {message.type}')
 
-                request.app.socket = socket
+                body = json.loads(message.data)
 
-                try:
-                    async for message in socket:
-                        if __debug__:  # pragma: no cover
-                            await self._sentinel.set_and_yield(DebugScenario.RECEIVE_SOCKET_MESSAGE_BEFORE_SERVER_IS_STOPPED)
+                future_key = body['future']
+                channel_key = body['channel']
+                payload = body.pop('payload')
+                body_type = body.pop('type')
 
-                        if message.type != WSMsgType.TEXT:
-                            raise TypeError(f'Received unexpected message type {message.type}')
+                match body_type:
+                    case 'closed':
+                        future = self._registry.retrieve(future_key)
+                        future.set_exception(StateError)
+                    case 'exception':
+                        future = self._registry.retrieve(future_key)
+                        future.set_exception(JavascriptError(payload))
+                    case 'result':
+                        output = json.loads(payload)
 
-                        body = json.loads(message.data)
+                        future = self._registry.retrieve(future_key)
+                        future.set_result(output)
+                    case _:
+                        input = json.loads(payload)
 
-                        future_key = body['future']
-                        channel_key = body['channel']
-                        payload = body.pop('payload')
-                        body_type = body.pop('type')
+                        channel = self._channels[channel_key]
 
-                        match body_type:
-                            case 'closed':
-                                future = self._registry.retrieve(future_key)
-                                future.set_exception(StateError)
-                            case 'exception':
-                                future = self._registry.retrieve(future_key)
-                                future.set_exception(JavascriptError(payload))
-                            case 'result':
-                                output = json.loads(payload)
+                        try:
+                            match body_type:
+                                case 'echo':
+                                    body_type = 'result'
+                                case 'call':
+                                    output = channel._handle_call(input['name'], input['args'])
+                                    if isawaitable(output):
+                                        output = await output
 
-                                future = self._registry.retrieve(future_key)
-                                future.set_result(output)
-                            case _:
-                                input = json.loads(payload)
-
-                                channel = self._channels[channel_key]
-
-                                try:
-                                    match body_type:
-                                        case 'echo':
-                                            body_type = 'result'
-                                        case 'call':
-                                            output = channel._handle_call(input['name'], input['args'])
-                                            if isawaitable(output):
-                                                output = await output
-
-                                            payload = json.dumps(output)
-                                            body_type = 'result'
-                                        case _:
-                                            payload = f'Received unexpected body type {body_type}'
-                                            body_type = 'exception'
-                                except Exception as error:
-                                    logging.exception('Channel request exception')
-
-                                    payload = f'{error.__class__.__name__}: {str(error)}'
+                                    payload = json.dumps(output)
+                                    body_type = 'result'
+                                case _:
+                                    payload = f'Received unexpected body type {body_type}'
                                     body_type = 'exception'
+                        except Exception as error:
+                            logging.exception('Channel request exception')
 
-                                body['payload'] = payload
+                            payload = f'{error.__class__.__name__}: {str(error)}'
+                            body_type = 'exception'
 
-                                await self._accept(socket, body_type, body)
-                except:
-                    logging.exception('Socket message exception')
+                        body['payload'] = payload
 
-                request.app.socket = None
+                        await self._accept(socket, body_type, body)
+        except:
+            logging.exception('Socket message exception')
 
-                if self._disconnection is not None:
-                    if __debug__:  # pragma: no cover
-                        await self._sentinel.wait_on_count(DebugScenario.READ_DISCONNECTION_STATE_AFTER_RESULT_IS_SET, 1)
+        request.app.socket = None
 
-                    if not self._disconnection.done():
-                        self._disconnection.set_result(True)
+        if self._disconnection is not None:
+            if __debug__:  # pragma: no cover
+                await self._sentinel.wait_on_count(DebugScenario.READ_DISCONNECTION_STATE_AFTER_RESULT_IS_SET, 1)
+
+            if not self._disconnection.done():
+                self._disconnection.set_result(True)
 
         return socket
 
