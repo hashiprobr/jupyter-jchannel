@@ -233,6 +233,7 @@ async def test_starts_does_not_send_and_stops(s):
 class Client:
     def __init__(self):
         self.stopped = True
+        self.body = None
 
     def start(self):
         if self.stopped:
@@ -241,7 +242,7 @@ class Client:
             loop = asyncio.get_running_loop()
             self.connection = loop.create_future()
 
-            self.disconnection = asyncio.Event()
+            self.disconnected = asyncio.Event()
 
             asyncio.create_task(self._run())
 
@@ -256,16 +257,14 @@ class Client:
 
         return json.dumps(body)
 
-    async def disconnected(self):
-        await self.disconnection.wait()
+    async def disconnection(self):
+        await self.disconnected.wait()
 
     async def _run(self):
         async with ClientSession() as session:
             try:
                 async with session.ws_connect(f'ws://localhost:8889/socket') as socket:
                     self.connection.set_result(200)
-
-                    self.body = None
 
                     async for message in socket:
                         body = json.loads(message.data)
@@ -295,7 +294,7 @@ class Client:
             except WSServerHandshakeError as error:
                 self.connection.set_result(error.status)
 
-            self.disconnection.set()
+        self.disconnected.set()
 
 
 class MockChannel:
@@ -361,7 +360,7 @@ async def test_connects_disconnects_does_not_stop_and_stops(server_and_client):
     await s._start(DebugScenario.READ_DISCONNECTION_RESULT_BEFORE_OBJECT_IS_REPLACED)
     assert await c.connection == 200
     await send(s, 'socket-close')
-    await c.disconnected()
+    await c.disconnection()
     with pytest.raises(StateError):
         await s.stop()
     await s.stop()
@@ -375,7 +374,7 @@ async def test_connects_and_stops_twice(server_and_client):
     task = s.stop()
     await s.stop()
     await task
-    await c.disconnected()
+    await c.disconnection()
 
 
 async def test_stops_and_does_not_connect(server_and_client):
@@ -383,7 +382,7 @@ async def test_stops_and_does_not_connect(server_and_client):
     await s._start(DebugScenario.READ_CONNECTION_RESULT_BEFORE_REFERENCE_IS_NONE)
     await s.stop()
     assert await c.connection == 404
-    await c.disconnected()
+    await c.disconnection()
 
 
 async def test_connects_does_not_start_and_stops(server_and_client):
@@ -394,7 +393,7 @@ async def test_connects_does_not_start_and_stops(server_and_client):
     with pytest.raises(OSError):
         await s_1.start()
     await s_0.stop()
-    await c.disconnected()
+    await c.disconnection()
 
 
 async def test_connects_stops_and_does_not_start(server_and_client):
@@ -408,7 +407,7 @@ async def test_connects_stops_and_does_not_start(server_and_client):
         await task_start
         await task_stop
     await s_0.stop()
-    await c.disconnected()
+    await c.disconnection()
 
 
 async def test_connects_does_not_connect_and_stops(server_and_client):
@@ -419,8 +418,8 @@ async def test_connects_does_not_connect_and_stops(server_and_client):
     assert await c_0.connection == 200
     assert await c_1.connection == 409
     await s.stop()
-    await c_0.disconnected()
-    await c_1.disconnected()
+    await c_0.disconnection()
+    await c_1.disconnection()
 
 
 async def test_does_not_connect_and_stops(server_and_client):
@@ -428,7 +427,7 @@ async def test_does_not_connect_and_stops(server_and_client):
     await s._start(DebugScenario.RECEIVE_SOCKET_REQUEST_BEFORE_SERVER_IS_STOPPED)
     await s.stop()
     assert await c.connection == 404
-    await c.disconnected()
+    await c.disconnection()
 
 
 async def test_connects_disconnects_does_not_send_and_stops(server_and_client):
@@ -436,7 +435,7 @@ async def test_connects_disconnects_does_not_send_and_stops(server_and_client):
     await s._start(DebugScenario.READ_DISCONNECTION_STATE_AFTER_RESULT_IS_SET)
     assert await c.connection == 200
     await send(s, 'socket-close')
-    await c.disconnected()
+    await c.disconnection()
     with pytest.raises(StateError):
         await send(s, '')
     await s.stop()
@@ -448,7 +447,7 @@ async def test_receives_unexpected_message_type(caplog, server_and_client):
         await s.start()
         assert await c.connection == 200
         await send(s, 'socket-bytes')
-        await c.disconnected()
+        await c.disconnection()
         await s.stop()
     assert len(caplog.records) == 1
 
@@ -459,7 +458,7 @@ async def test_receives_empty_message(caplog, server_and_client):
         await s.start()
         assert await c.connection == 200
         await send(s, 'empty-message')
-        await c.disconnected()
+        await c.disconnection()
         await s.stop()
     assert len(caplog.records) == 1
 
@@ -470,7 +469,7 @@ async def test_receives_empty_body(caplog, server_and_client):
         await s.start()
         assert await c.connection == 200
         await send(s, 'empty-body')
-        await c.disconnected()
+        await c.disconnection()
         await s.stop()
     assert len(caplog.records) == 1
 
@@ -481,7 +480,7 @@ async def test_receives_closed(future, server_and_client):
     assert await c.connection == 200
     await send(s, 'mock-closed')
     await s.stop()
-    await c.disconnected()
+    await c.disconnection()
     future.set_exception.assert_called_once_with(StateError)
 
 
@@ -491,7 +490,7 @@ async def test_receives_exception(future, server_and_client):
     assert await c.connection == 200
     await send(s, 'mock-exception')
     await s.stop()
-    await c.disconnected()
+    await c.disconnection()
     args, _ = future.set_exception.call_args
     error, = args
     assert isinstance(error, JavascriptError)
@@ -505,7 +504,7 @@ async def test_receives_result(future, server_and_client):
     assert await c.connection == 200
     await send(s, 'mock-result')
     await s.stop()
-    await c.disconnected()
+    await c.disconnection()
     args, _ = future.set_result.call_args
     output, = args
     assert output == 0
@@ -518,7 +517,7 @@ async def test_does_not_open(caplog, server_and_client):
         assert await c.connection == 200
         open(s, 0)
         await s.stop()
-        await c.disconnected()
+        await c.disconnection()
     assert len(caplog.records) == 1
 
 
@@ -528,7 +527,7 @@ async def test_echoes(server_and_client):
     assert await c.connection == 200
     open(s)
     await send(s, 'echo', 1)
-    await c.disconnected()
+    await c.disconnection()
     await s.stop()
     assert len(c.body) == 4
     assert c.body['type'] == 'result'
@@ -543,7 +542,7 @@ async def test_calls(server_and_client):
     assert await c.connection == 200
     open(s)
     await send(s, 'call', {'name': 'name', 'args': [2, 3]})
-    await c.disconnected()
+    await c.disconnection()
     await s.stop()
     assert len(c.body) == 4
     assert c.body['type'] == 'result'
@@ -558,7 +557,7 @@ async def test_calls_async(server_and_client):
     assert await c.connection == 200
     open(s)
     await send(s, 'call', {'name': 'async', 'args': [2, 3]})
-    await c.disconnected()
+    await c.disconnection()
     await s.stop()
     assert len(c.body) == 4
     assert c.body['type'] == 'result'
@@ -574,7 +573,7 @@ async def test_calls_error(caplog, server_and_client):
         assert await c.connection == 200
         open(s)
         await send(s, 'call', {'name': 'error', 'args': [2, 3]})
-        await c.disconnected()
+        await c.disconnection()
         await s.stop()
         assert len(c.body) == 4
         assert c.body['type'] == 'exception'
@@ -590,7 +589,7 @@ async def test_receives_unexpected_body_type(server_and_client):
     assert await c.connection == 200
     open(s)
     await send(s, 'type')
-    await c.disconnected()
+    await c.disconnection()
     await s.stop()
     assert len(c.body) == 4
     assert c.body['type'] == 'exception'
