@@ -197,7 +197,7 @@ class Server(AbstractServer):
 
                 raise error
 
-            asyncio.create_task(self._run(runner, site))
+            asyncio.create_task(self._run(runner))
 
             self.start_client()
 
@@ -224,7 +224,7 @@ class Server(AbstractServer):
 
             await self._cleaned.wait()
 
-    async def _run(self, runner, site):
+    async def _run(self, runner):
         restarting = True
 
         while restarting:
@@ -257,8 +257,6 @@ class Server(AbstractServer):
             await self._sentinel.wait_on_count(DebugScenario.RECEIVE_SOCKET_MESSAGE_BEFORE_SERVER_IS_STOPPED, 1)
 
         frontend.run(f"jchannel._unload('{self._url}')")
-
-        await site.stop()
 
         await runner.cleanup()
 
