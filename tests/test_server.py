@@ -251,7 +251,9 @@ class Client:
             'channel': CHANNEL_KEY,
             'payload': payload,
         }
+
         body['type'] = body_type
+
         return json.dumps(body)
 
     async def disconnected(self):
@@ -259,12 +261,15 @@ class Client:
 
     async def _run(self):
         async with ClientSession() as session:
-            self.body = None
             try:
                 async with session.ws_connect(f'ws://localhost:8889/socket') as socket:
                     self.connection.set_result(200)
+
+                    self.body = None
+
                     async for message in socket:
                         body = json.loads(message.data)
+
                         match body['type']:
                             case 'exception' | 'result':
                                 self.body = body
@@ -289,6 +294,7 @@ class Client:
                                 await socket.send_str(message.data)
             except WSServerHandshakeError as error:
                 self.connection.set_result(error.status)
+
             self.disconnection.set()
 
 

@@ -197,9 +197,9 @@ class Server(AbstractServer):
 
                 raise error
 
-            asyncio.create_task(self._run(runner))
-
             self.start_client()
+
+            asyncio.create_task(self._run(runner))
 
     async def _stop(self):
         if not self._cleaned.is_set():
@@ -212,28 +212,28 @@ class Server(AbstractServer):
 
             if self._disconnection is not None:
                 if self._disconnection.done():
-                    restarting = self._disconnection.result()
+                    reconnecting = self._disconnection.result()
 
                     if __debug__:  # pragma: no cover
                         await self._sentinel.set_and_yield(DebugScenario.READ_DISCONNECTION_RESULT_BEFORE_OBJECT_IS_REPLACED)
 
-                    if restarting:
-                        raise StateError('Cannot stop server while restarting')
+                    if reconnecting:
+                        raise StateError('Server is reconnecting')
                 else:
                     self._disconnection.set_result(False)
 
             await self._cleaned.wait()
 
     async def _run(self, runner):
-        restarting = True
+        reconnecting = True
 
-        while restarting:
-            restarting = await self._disconnection
+        while reconnecting:
+            reconnecting = await self._disconnection
 
             if __debug__:  # pragma: no cover
                 await self._sentinel.set_and_yield(DebugScenario.READ_DISCONNECTION_STATE_AFTER_RESULT_IS_SET)
 
-            if restarting:
+            if reconnecting:
                 if __debug__:  # pragma: no cover
                     await self._sentinel.wait_on_count(DebugScenario.READ_DISCONNECTION_RESULT_BEFORE_OBJECT_IS_REPLACED, 1)
 
