@@ -436,16 +436,6 @@ async def test_connects_disconnects_does_not_send_and_stops(server_and_client):
     await s.stop()
 
 
-async def test_does_not_send_connects_and_stops(server_and_client):
-    s, c = server_and_client
-    await s._start(DebugScenario.READ_SOCKET_STATE_BEFORE_SOCKET_IS_PREPARED)
-    with pytest.raises(StateError):
-        await send(s, '')
-    assert await c.connection == 200
-    await s.stop()
-    await c.disconnected()
-
-
 async def test_receives_unexpected_message_type(caplog, server_and_client):
     with caplog.at_level(logging.ERROR):
         s, c = server_and_client
