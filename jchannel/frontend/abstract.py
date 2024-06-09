@@ -27,8 +27,8 @@ class AbstractFrontend(ABC):
                         resolve();
                     }});
 
-                    script.addEventListener('error', () => {{
-                        reject(new Error('Could not load client'));
+                    script.addEventListener('error', (event) => {{
+                        reject(event);
                     }});
 
                     script.src = '{self.url}';
@@ -39,8 +39,8 @@ class AbstractFrontend(ABC):
 
             promise.then(() => {{
                 {code};
-            }}).catch((error) => {{
-                console.error(error);
+            }}).catch((event) => {{
+                console.error('Script error event', event);
             }});
         ''')
 
