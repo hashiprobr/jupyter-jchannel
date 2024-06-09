@@ -353,12 +353,10 @@ def open(s, timeout=3):
 
 async def test_connects_disconnects_does_not_stop_and_stops(server_and_client):
     s, c = server_and_client
-    await s._start(DebugScenario.READ_DISCONNECTION_RESULT_BEFORE_OBJECT_IS_REPLACED)
+    await s.start()
     assert await c.connection == 200
     await send(s, 'socket-close')
     await c.disconnection
-    with pytest.raises(StateError):
-        await s.stop()
     await s.stop()
     s._registry.clear.assert_has_calls(2 * [call()])
 
@@ -454,6 +452,8 @@ async def test_receives_unexpected_message_type(caplog, server_and_client):
         assert await c.connection == 200
         await send(s, 'socket-bytes')
         await c.disconnection
+        with pytest.raises(StateError):
+            await s.stop()
         await s.stop()
     assert len(caplog.records) == 1
 
@@ -465,6 +465,8 @@ async def test_receives_empty_message(caplog, server_and_client):
         assert await c.connection == 200
         await send(s, 'empty-message')
         await c.disconnection
+        with pytest.raises(StateError):
+            await s.stop()
         await s.stop()
     assert len(caplog.records) == 1
 
@@ -476,6 +478,8 @@ async def test_receives_empty_body(caplog, server_and_client):
         assert await c.connection == 200
         await send(s, 'empty-body')
         await c.disconnection
+        with pytest.raises(StateError):
+            await s.stop()
         await s.stop()
     assert len(caplog.records) == 1
 

@@ -15,7 +15,6 @@ class DebugScenario(Enum):
     READ_CONNECTION_REFERENCE_AFTER_REFERENCE_IS_NONE = auto()
     READ_CONNECTION_RESULT_BEFORE_REFERENCE_IS_NONE = auto()
     READ_DISCONNECTION_STATE_AFTER_RESULT_IS_SET = auto()
-    READ_DISCONNECTION_RESULT_BEFORE_OBJECT_IS_REPLACED = auto()
     READ_SOCKET_STATE_BEFORE_SOCKET_IS_PREPARED = auto()
     RECEIVE_SOCKET_REQUEST_BEFORE_SERVER_IS_STOPPED = auto()
     RECEIVE_SOCKET_MESSAGE_BEFORE_SERVER_IS_STOPPED = auto()
@@ -215,9 +214,6 @@ class Server(AbstractServer):
                 if self._disconnection.done():
                     reconnecting = self._disconnection.result()
 
-                    if __debug__:  # pragma: no cover
-                        await self._sentinel.set_and_yield(DebugScenario.READ_DISCONNECTION_RESULT_BEFORE_OBJECT_IS_REPLACED)
-
                     if reconnecting:
                         raise StateError('Server is reconnecting')
                 else:
@@ -235,9 +231,6 @@ class Server(AbstractServer):
                 await self._sentinel.set_and_yield(DebugScenario.READ_DISCONNECTION_STATE_AFTER_RESULT_IS_SET)
 
             if reconnecting:
-                if __debug__:  # pragma: no cover
-                    await self._sentinel.wait_on_count(DebugScenario.READ_DISCONNECTION_RESULT_BEFORE_OBJECT_IS_REPLACED, 1)
-
                 loop = asyncio.get_running_loop()
                 self._connection = loop.create_future()
                 self._disconnection = loop.create_future()
@@ -361,7 +354,7 @@ class Server(AbstractServer):
                     await self._sentinel.set_and_yield(DebugScenario.RECEIVE_SOCKET_MESSAGE_BEFORE_SERVER_IS_STOPPED)
 
                 if message.type != WSMsgType.TEXT:
-                    raise TypeError(f'Received unexpected message type {message.type}')
+                    raise TypeError(f'Unexpected message type {message.type}')
 
                 body = json.loads(message.data)
 
@@ -399,7 +392,7 @@ class Server(AbstractServer):
                                     payload = json.dumps(output)
                                     body_type = 'result'
                                 case _:
-                                    payload = f'Received unexpected body type {body_type}'
+                                    payload = f'Unexpected body type {body_type}'
                                     body_type = 'exception'
                         except Exception as error:
                             logging.exception('Channel request exception')
@@ -412,6 +405,8 @@ class Server(AbstractServer):
                         await self._accept(socket, body_type, body)
         except:
             logging.exception('Socket message exception')
+
+            await socket.close()
 
         request.app.socket = None
 
