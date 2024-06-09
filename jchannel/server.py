@@ -284,7 +284,7 @@ class Server(AbstractServer):
             try:
                 socket = await asyncio.wait_for(asyncio.shield(self._connection), timeout)
             except asyncio.TimeoutError:
-                raise StateError('Server timed out') from None
+                raise StateError('Server not connected') from None
 
         if socket is None:
             raise StateError('Server not running')
@@ -296,7 +296,7 @@ class Server(AbstractServer):
             raise StateError('Server not prepared')
 
         if socket.closed:
-            raise StateError('Server not connected')
+            raise StateError('Server has disconnected')
 
         payload = json.dumps(input)
 
