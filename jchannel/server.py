@@ -16,6 +16,7 @@ class DebugScenario(Enum):
     READ_CONNECTION_RESULT_BEFORE_REFERENCE_IS_NONE = auto()
     READ_DISCONNECTION_STATE_AFTER_RESULT_IS_SET = auto()
     READ_DISCONNECTION_RESULT_BEFORE_OBJECT_IS_REPLACED = auto()
+    READ_SOCKET_STATE_BEFORE_SOCKET_IS_PREPARED = auto()
     RECEIVE_SOCKET_REQUEST_BEFORE_SERVER_IS_STOPPED = auto()
     RECEIVE_SOCKET_MESSAGE_BEFORE_SERVER_IS_STOPPED = auto()
 
@@ -295,6 +296,12 @@ class Server(AbstractServer):
         if socket is None:
             raise StateError('Server not running')
 
+        if not socket.prepared:
+            if __debug__:  # pragma: no cover
+                await self._sentinel.set_and_yield(DebugScenario.READ_SOCKET_STATE_BEFORE_SOCKET_IS_PREPARED)
+
+            raise StateError('Server not prepared')
+
         if socket.closed:
             raise StateError('Server not connected')
 
@@ -339,9 +346,12 @@ class Server(AbstractServer):
 
         socket = web.WebSocketResponse(heartbeat=self._heartbeat)
 
-        await socket.prepare(request)
-
         self._connection.set_result(socket)
+
+        if __debug__:  # pragma: no cover
+            await self._sentinel.wait_on_count(DebugScenario.READ_SOCKET_STATE_BEFORE_SOCKET_IS_PREPARED, 1)
+
+        await socket.prepare(request)
 
         request.app.socket = socket
 

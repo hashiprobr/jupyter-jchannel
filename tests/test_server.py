@@ -282,9 +282,9 @@ class Client:
                             case 'mock-closed':
                                 await socket.send_str(self._dumps('closed', None))
                             case 'mock-exception':
-                                await socket.send_str(self._dumps('exception', ''))
+                                await socket.send_str(self._dumps('exception', 'message'))
                             case 'mock-result':
-                                await socket.send_str(self._dumps('result', '0'))
+                                await socket.send_str(self._dumps('result', 'true'))
                             case _:
                                 await socket.send_str(message.data)
             except WSServerHandshakeError as error:
@@ -437,6 +437,16 @@ async def test_connects_disconnects_does_not_send_and_stops(server_and_client):
     await s.stop()
 
 
+async def test_does_not_send_connects_and_stops(server_and_client):
+    s, c = server_and_client
+    await s._start(DebugScenario.READ_SOCKET_STATE_BEFORE_SOCKET_IS_PREPARED)
+    with pytest.raises(StateError):
+        await send(s, '')
+    await c.connection
+    await s.stop()
+    await c.disconnection
+
+
 async def test_receives_unexpected_message_type(caplog, server_and_client):
     with caplog.at_level(logging.ERROR):
         s, c = server_and_client
@@ -491,7 +501,7 @@ async def test_receives_exception(future, server_and_client):
     error, = args
     assert isinstance(error, JavascriptError)
     message, = error.args
-    assert isinstance(message, str)
+    assert message == 'message'
 
 
 async def test_receives_result(future, server_and_client):
@@ -503,7 +513,7 @@ async def test_receives_result(future, server_and_client):
     await c.disconnection
     args, _ = future.set_result.call_args
     output, = args
-    assert output == 0
+    assert output is True
 
 
 async def test_does_not_open(caplog, server_and_client):
