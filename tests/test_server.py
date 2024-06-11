@@ -230,6 +230,26 @@ async def test_starts_does_not_send_and_stops(s):
             await send(server, 'close', timeout=0)
 
 
+class MockChannel:
+    def __init__(self, server, code):
+        server._channels[CHANNEL_KEY] = self
+        assert code == '() => { }'
+
+    def _handle_call(self, name, args):
+        if name == 'error':
+            raise Exception
+        if name == 'async':
+            return self._resolve(args)
+        return args
+
+    async def _resolve(self, args):
+        return args
+
+    async def _open(self, timeout):
+        if not timeout:
+            raise Exception
+
+
 class Client:
     def __init__(self):
         self.stopped = True
@@ -291,26 +311,6 @@ class Client:
                 self.connection.set_result(error.status)
 
         self.disconnection.set_result(None)
-
-
-class MockChannel:
-    def __init__(self, server, code):
-        server._channels[CHANNEL_KEY] = self
-        assert code == '() => { }'
-
-    def _handle_call(self, name, args):
-        if name == 'error':
-            raise Exception
-        if name == 'async':
-            return self._resolve(args)
-        return args
-
-    async def _resolve(self, args):
-        return args
-
-    async def _open(self, timeout):
-        if not timeout:
-            raise Exception
 
 
 @pytest.fixture

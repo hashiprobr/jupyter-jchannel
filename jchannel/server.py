@@ -212,9 +212,7 @@ class Server(AbstractServer):
 
             if self._disconnection is not None:
                 if self._disconnection.done():
-                    reconnecting = self._disconnection.result()
-
-                    if reconnecting:
+                    if self._disconnection.result():
                         raise StateError('Server is reconnecting')
                 else:
                     self._disconnection.set_result(False)
@@ -222,13 +220,13 @@ class Server(AbstractServer):
             await self._cleaned.wait()
 
     async def _run(self, runner):
-        reconnecting = True
-
-        while reconnecting:
+        while True:
             reconnecting = await self._disconnection
 
             if __debug__:  # pragma: no cover
                 await self._sentinel.set_and_yield(DebugScenario.READ_DISCONNECTION_STATE_AFTER_RESULT_IS_SET)
+
+            self._registry.clear()
 
             if reconnecting:
                 loop = asyncio.get_running_loop()
@@ -244,7 +242,7 @@ class Server(AbstractServer):
                 if __debug__:  # pragma: no cover
                     await self._sentinel.set_and_yield(DebugScenario.READ_CONNECTION_REFERENCE_AFTER_REFERENCE_IS_NONE)
 
-            self._registry.clear()
+                break
 
         if __debug__:  # pragma: no cover
             await self._sentinel.wait_on_count(DebugScenario.RECEIVE_SOCKET_REQUEST_BEFORE_SERVER_IS_STOPPED, 1)
@@ -261,13 +259,6 @@ class Server(AbstractServer):
             await channel._open(timeout)
         except:
             logging.exception('Could not open channel')
-
-    async def _accept(self, socket, body_type, body):
-        body['type'] = body_type
-
-        data = json.dumps(body)
-
-        await socket.send_str(data)
 
     async def _send(self, body_type, input, channel_key, timeout):
         if not isinstance(timeout, int):
@@ -312,6 +303,13 @@ class Server(AbstractServer):
         await self._accept(socket, body_type, body)
 
         return future
+
+    async def _accept(self, socket, body_type, body):
+        body['type'] = body_type
+
+        data = json.dumps(body)
+
+        await socket.send_str(data)
 
     async def _on_shutdown(self, app):
         if app.socket is not None:
