@@ -3,7 +3,7 @@ import asyncio
 import logging
 import pytest
 
-from unittest.mock import Mock, call
+from unittest.mock import Mock
 from aiohttp import ClientSession, WSServerHandshakeError
 from jchannel.types import JavascriptError, StateError
 from jchannel.server import Server, DebugScenario
