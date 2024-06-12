@@ -233,7 +233,7 @@ async def test_starts_does_not_send_and_stops(s):
 class MockChannel:
     def __init__(self, server, code):
         server._channels[CHANNEL_KEY] = self
-        assert code == '() => { }'
+        assert code == '() => true'
 
     def _handle_call(self, name, args):
         if name == 'error':
@@ -347,36 +347,48 @@ def server_and_client(mocker, future):
 
 
 def open(s, timeout=3):
-    channel = s.open('() => { }', timeout)
+    channel = s.open('() => true', timeout)
     assert isinstance(channel, MockChannel)
 
 
-async def test_connects_disconnects_does_not_stop_and_stops(server_and_client):
+async def test_connects_disconnects_and_stops_twice(server_and_client):
     s, c = server_and_client
-    await s.start()
+    await s._start(DebugScenario.READ_SESSION_REFERENCES_AFTER_SESSION_REFERENCES_ARE_NONE)
     assert await c.connection == 200
     await send(s, 'socket-close')
     await c.disconnection
-    await s.stop()
-    s._registry.clear.assert_has_calls(2 * [call()])
-
-
-async def test_connects_and_stops_twice(server_and_client):
-    s, c = server_and_client
-    await s._start(DebugScenario.READ_CONNECTION_REFERENCE_AFTER_REFERENCE_IS_NONE)
-    assert await c.connection == 200
     task = s.stop()
     await s.stop()
     await task
-    await c.disconnection
+    assert s._registry.clear.call_count == 2
 
 
 async def test_stops_and_does_not_connect(server_and_client):
     s, c = server_and_client
-    await s._start(DebugScenario.READ_CONNECTION_RESULT_BEFORE_REFERENCE_IS_NONE)
+    await s._start(DebugScenario.HANDLE_SOCKET_REQUEST_BEFORE_APP_RUNNER_IS_CLEANED)
     await s.stop()
     assert await c.connection == 404
     await c.disconnection
+
+
+async def test_does_not_connect_and_stops(server_and_client):
+    s, c = server_and_client
+    await s._start(DebugScenario.READ_SESSION_RESULTS_BEFORE_SESSION_REFERENCES_ARE_NONE)
+    await s.stop()
+    assert await c.connection == 404
+    await c.disconnection
+
+
+async def test_connects_does_not_connect_and_stops(server_and_client):
+    s, c_0 = server_and_client
+    c_1 = Client()
+    await s.start()
+    c_1.start()
+    assert await c_0.connection == 200
+    assert await c_1.connection == 409
+    await s.stop()
+    await c_0.disconnection
+    await c_1.disconnection
 
 
 async def test_connects_does_not_start_and_stops(server_and_client):
@@ -404,42 +416,22 @@ async def test_connects_stops_and_does_not_start(server_and_client):
     await c.disconnection
 
 
-async def test_connects_does_not_connect_and_stops(server_and_client):
-    s, c_0 = server_and_client
-    c_1 = Client()
-    await s.start()
-    c_1.start()
-    assert await c_0.connection == 200
-    assert await c_1.connection == 409
-    await s.stop()
-    await c_0.disconnection
-    await c_1.disconnection
-
-
-async def test_does_not_connect_and_stops(server_and_client):
-    s, c = server_and_client
-    await s._start(DebugScenario.RECEIVE_SOCKET_REQUEST_BEFORE_SERVER_IS_STOPPED)
-    await s.stop()
-    assert await c.connection == 404
-    await c.disconnection
-
-
 async def test_connects_disconnects_does_not_send_and_stops(server_and_client):
     s, c = server_and_client
-    await s._start(DebugScenario.READ_DISCONNECTION_STATE_AFTER_RESULT_IS_SET)
+    await s._start(DebugScenario.READ_DISCONNECTION_STATE_AFTER_DISCONNECTION_RESULT_IS_SET)
     assert await c.connection == 200
     await send(s, 'socket-close')
     await c.disconnection
     with pytest.raises(StateError):
-        await send(s, '')
+        await send(s, 'close')
     await s.stop()
 
 
 async def test_does_not_send_connects_and_stops(server_and_client):
     s, c = server_and_client
-    await s._start(DebugScenario.READ_SOCKET_STATE_BEFORE_SOCKET_IS_PREPARED)
+    await s._start(DebugScenario.READ_SOCKET_PREPARATION_BEFORE_SOCKET_IS_PREPARED)
     with pytest.raises(StateError):
-        await send(s, '')
+        await send(s, 'close')
     await c.connection
     await s.stop()
     await c.disconnection
@@ -486,21 +478,23 @@ async def test_receives_empty_body(caplog, server_and_client):
 
 async def test_receives_closed(future, server_and_client):
     s, c = server_and_client
-    await s._start(DebugScenario.RECEIVE_SOCKET_MESSAGE_BEFORE_SERVER_IS_STOPPED)
+    await s.start()
     assert await c.connection == 200
     await send(s, 'mock-closed')
-    await s.stop()
+    await send(s, 'socket-close')
     await c.disconnection
+    await s.stop()
     future.set_exception.assert_called_once_with(StateError)
 
 
 async def test_receives_exception(future, server_and_client):
     s, c = server_and_client
-    await s._start(DebugScenario.RECEIVE_SOCKET_MESSAGE_BEFORE_SERVER_IS_STOPPED)
+    await s.start()
     assert await c.connection == 200
     await send(s, 'mock-exception')
-    await s.stop()
+    await send(s, 'socket-close')
     await c.disconnection
+    await s.stop()
     args, _ = future.set_exception.call_args
     error, = args
     assert isinstance(error, JavascriptError)
@@ -510,11 +504,12 @@ async def test_receives_exception(future, server_and_client):
 
 async def test_receives_result(future, server_and_client):
     s, c = server_and_client
-    await s._start(DebugScenario.RECEIVE_SOCKET_MESSAGE_BEFORE_SERVER_IS_STOPPED)
+    await s.start()
     assert await c.connection == 200
     await send(s, 'mock-result')
-    await s.stop()
+    await send(s, 'socket-close')
     await c.disconnection
+    await s.stop()
     args, _ = future.set_result.call_args
     output, = args
     assert output is True

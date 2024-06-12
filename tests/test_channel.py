@@ -8,7 +8,7 @@ from jchannel.channel import Channel
 pytestmark = pytest.mark.asyncio(scope='module')
 
 
-CODE = '() => { }'
+CODE = '() => true'
 
 
 async def test_does_not_instantiate():
