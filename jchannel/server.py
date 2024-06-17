@@ -14,7 +14,7 @@ from jchannel.frontend import frontend
 if __debug__:  # pragma: no cover
     class DebugScenario(Enum):
         READ_SESSION_REFERENCES_AFTER_SESSION_REFERENCES_ARE_NONE = auto()
-        READ_SESSION_RESULTS_BEFORE_SESSION_REFERENCES_ARE_NONE = auto()
+        READ_CONNECTION_RESULT_BEFORE_SESSION_REFERENCES_ARE_NONE = auto()
         READ_DISCONNECTION_STATE_AFTER_DISCONNECTION_RESULT_IS_SET = auto()
         READ_SOCKET_PREPARATION_BEFORE_SOCKET_IS_PREPARED = auto()
         HANDLE_SOCKET_REQUEST_BEFORE_APP_RUNNER_IS_CLEANED = auto()
@@ -232,7 +232,7 @@ class Server(AbstractServer):
                 self._disconnection = loop.create_future()
             else:
                 if __debug__:  # pragma: no cover
-                    await self._sentinel.wait_on_count(DebugScenario.READ_SESSION_RESULTS_BEFORE_SESSION_REFERENCES_ARE_NONE, 1)
+                    await self._sentinel.wait_on_count(DebugScenario.READ_CONNECTION_RESULT_BEFORE_SESSION_REFERENCES_ARE_NONE, 1)
 
                 self._connection = None
                 self._disconnection = None
@@ -242,10 +242,10 @@ class Server(AbstractServer):
 
                 break
 
+        frontend.run(f"jchannel._unload('{self._url}')")
+
         if __debug__:  # pragma: no cover
             await self._sentinel.wait_on_count(DebugScenario.HANDLE_SOCKET_REQUEST_BEFORE_APP_RUNNER_IS_CLEANED, 1)
-
-        frontend.run(f"jchannel._unload('{self._url}')")
 
         await runner.cleanup()
 
@@ -323,7 +323,7 @@ class Server(AbstractServer):
             socket = self._connection.result()
 
             if __debug__:  # pragma: no cover
-                await self._sentinel.set_and_yield(DebugScenario.READ_SESSION_RESULTS_BEFORE_SESSION_REFERENCES_ARE_NONE)
+                await self._sentinel.set_and_yield(DebugScenario.READ_CONNECTION_RESULT_BEFORE_SESSION_REFERENCES_ARE_NONE)
 
             if socket is None:
                 status = 404

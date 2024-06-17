@@ -373,9 +373,10 @@ async def test_stops_and_does_not_connect(server_and_client):
 
 async def test_does_not_connect_and_stops(server_and_client):
     s, c = server_and_client
-    await s._start(DebugScenario.READ_SESSION_RESULTS_BEFORE_SESSION_REFERENCES_ARE_NONE)
-    await s.stop()
+    await s._start(DebugScenario.READ_CONNECTION_RESULT_BEFORE_SESSION_REFERENCES_ARE_NONE)
+    task = s.stop()
     assert await c.connection == 404
+    await task
     await c.disconnection
 
 
@@ -402,7 +403,7 @@ async def test_connects_does_not_start_and_stops(server_and_client):
     await c.disconnection
 
 
-async def test_connects_stops_and_does_not_start(server_and_client):
+async def test_connects_does_not_start_and_stops_twice(server_and_client):
     s_0, c = server_and_client
     s_1 = Server()
     await s_0.start()
@@ -432,7 +433,7 @@ async def test_does_not_send_connects_and_stops(server_and_client):
     await s._start(DebugScenario.READ_SOCKET_PREPARATION_BEFORE_SOCKET_IS_PREPARED)
     with pytest.raises(StateError):
         await send(s, 'close')
-    await c.connection
+    assert await c.connection == 200
     await s.stop()
     await c.disconnection
 
@@ -531,12 +532,12 @@ async def test_echoes(server_and_client):
     await s.start()
     assert await c.connection == 200
     open(s)
-    await send(s, 'echo', 1)
+    await send(s, 'echo', 3)
     await c.disconnection
     await s.stop()
     assert len(c.body) == 4
     assert c.body['type'] == 'result'
-    assert c.body['payload'] == '1'
+    assert c.body['payload'] == '3'
     assert c.body['channel'] == CHANNEL_KEY
     assert c.body['future'] == FUTURE_KEY
 
@@ -546,12 +547,12 @@ async def test_calls(server_and_client):
     await s.start()
     assert await c.connection == 200
     open(s)
-    await send(s, 'call', {'name': 'name', 'args': [2, 3]})
+    await send(s, 'call', {'name': 'name', 'args': [1, 2]})
     await c.disconnection
     await s.stop()
     assert len(c.body) == 4
     assert c.body['type'] == 'result'
-    assert c.body['payload'] == '[2, 3]'
+    assert c.body['payload'] == '[1, 2]'
     assert c.body['channel'] == CHANNEL_KEY
     assert c.body['future'] == FUTURE_KEY
 
@@ -561,12 +562,12 @@ async def test_calls_async(server_and_client):
     await s.start()
     assert await c.connection == 200
     open(s)
-    await send(s, 'call', {'name': 'async', 'args': [2, 3]})
+    await send(s, 'call', {'name': 'async', 'args': [1, 2]})
     await c.disconnection
     await s.stop()
     assert len(c.body) == 4
     assert c.body['type'] == 'result'
-    assert c.body['payload'] == '[2, 3]'
+    assert c.body['payload'] == '[1, 2]'
     assert c.body['channel'] == CHANNEL_KEY
     assert c.body['future'] == FUTURE_KEY
 
@@ -577,7 +578,7 @@ async def test_calls_error(caplog, server_and_client):
         await s.start()
         assert await c.connection == 200
         open(s)
-        await send(s, 'call', {'name': 'error', 'args': [2, 3]})
+        await send(s, 'call', {'name': 'error', 'args': [1, 2]})
         await c.disconnection
         await s.stop()
         assert len(c.body) == 4
