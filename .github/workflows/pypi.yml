@@ -27,7 +27,7 @@ jobs:
         poetry config pypi-token.pypi $PYPI_TOKEN
 
     - name: Checkout
-      uses: actions/checkout@v4.1.5
+      uses: actions/checkout@v4.1.7
 
     - name: Install
       run: poetry install
