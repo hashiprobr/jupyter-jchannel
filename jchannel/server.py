@@ -13,11 +13,11 @@ from jchannel.frontend import frontend
 
 if __debug__:  # pragma: no cover
     class DebugScenario(Enum):
+        HANDLE_SOCKET_REQUEST_BEFORE_APP_RUNNER_IS_CLEANED = auto()
+        READ_SOCKET_PREPARATION_BEFORE_SOCKET_IS_PREPARED = auto()
         READ_SESSION_REFERENCES_AFTER_SESSION_REFERENCES_ARE_NONE = auto()
         READ_CONNECTION_RESULT_BEFORE_SESSION_REFERENCES_ARE_NONE = auto()
         READ_DISCONNECTION_STATE_AFTER_DISCONNECTION_RESULT_IS_SET = auto()
-        READ_SOCKET_PREPARATION_BEFORE_SOCKET_IS_PREPARED = auto()
-        HANDLE_SOCKET_REQUEST_BEFORE_APP_RUNNER_IS_CLEANED = auto()
 
     class DebugEvent(asyncio.Event):
         def __init__(self, scenario):
@@ -251,12 +251,6 @@ class Server(AbstractServer):
 
         self._cleaned.set()
 
-    async def _open(self, channel, timeout):
-        try:
-            await channel._open(timeout)
-        except:
-            logging.exception('Could not open channel')
-
     async def _send(self, body_type, input, channel_key, timeout):
         if not isinstance(timeout, int):
             raise TypeError('Timeout must be an integer')
@@ -307,6 +301,12 @@ class Server(AbstractServer):
         data = json.dumps(body)
 
         await socket.send_str(data)
+
+    async def _open(self, channel, timeout):
+        try:
+            await channel._open(timeout)
+        except:
+            logging.exception('Could not open channel')
 
     async def _on_shutdown(self, app):
         if app.socket is not None:
