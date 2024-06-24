@@ -499,11 +499,10 @@ async def test_receives_exception(future, server_and_client):
     await send(s, 'socket-close')
     await c.disconnection
     await s.stop()
-    args, _ = future.set_exception.call_args
+    (args, _), = future.set_exception.call_args_list
     error, = args
     assert isinstance(error, JavascriptError)
-    message, = error.args
-    assert message == 'message'
+    assert error.args == ('message',)
 
 
 async def test_receives_result(future, server_and_client):
@@ -514,7 +513,7 @@ async def test_receives_result(future, server_and_client):
     await send(s, 'socket-close')
     await c.disconnection
     await s.stop()
-    args, _ = future.set_result.call_args
+    (args, _), = future.set_result.call_args_list
     output, = args
     assert output is True
 
@@ -575,7 +574,7 @@ async def test_calls_async(server_and_client):
     assert c.body['future'] == FUTURE_KEY
 
 
-async def test_calls_error(caplog, server_and_client):
+async def test_does_not_call_error(caplog, server_and_client):
     with caplog.at_level(logging.ERROR):
         s, c = server_and_client
         await s.start()
