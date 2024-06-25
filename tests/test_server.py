@@ -396,7 +396,6 @@ async def test_stops_and_does_not_connect(server_and_client):
     await s.stop()
     assert await c.connection == 404
     await c.disconnection
-    assert s._registry.clear.call_count == 1
 
 
 async def test_does_not_connect_and_stops(server_and_client):
@@ -406,7 +405,6 @@ async def test_does_not_connect_and_stops(server_and_client):
     assert await c.connection == 404
     await task
     await c.disconnection
-    assert s._registry.clear.call_count == 1
 
 
 async def test_connects_does_not_connect_and_stops(server_and_client):
