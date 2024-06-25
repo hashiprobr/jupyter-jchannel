@@ -135,9 +135,13 @@ class Server(AbstractServer):
     def stop(self):
         return asyncio.create_task(self._stop())
 
-    def open(self, code, timeout=3):
+    async def open(self, code, timeout=3):
         channel = Channel(self, code)
-        asyncio.create_task(self._open(channel, timeout))
+        try:
+            await channel._open(timeout)
+        except Exception as error:
+            channel.destroy()
+            raise error
         return channel
 
     async def __aenter__(self):
@@ -301,12 +305,6 @@ class Server(AbstractServer):
         data = json.dumps(body)
 
         await socket.send_str(data)
-
-    async def _open(self, channel, timeout):
-        try:
-            await channel._open(timeout)
-        except:
-            logging.exception('Could not open channel')
 
     async def _on_shutdown(self, app):
         if app.socket is not None:

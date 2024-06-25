@@ -235,6 +235,11 @@ class MockChannel:
         server._channels[CHANNEL_KEY] = self
         assert code == '() => true'
 
+        def destroy():
+            del server._channels[CHANNEL_KEY]
+
+        self.destroy = destroy
+
     def _handle_call(self, name, args):
         if name == 'error':
             raise Exception
@@ -346,8 +351,8 @@ def server_and_client(mocker, future):
     return s, c
 
 
-def open(s, timeout=3):
-    channel = s.open('() => true', timeout)
+async def open(s, timeout=3):
+    channel = await s.open('() => true', timeout)
     assert isinstance(channel, MockChannel)
 
 
@@ -518,22 +523,22 @@ async def test_receives_result(future, server_and_client):
     assert output is True
 
 
-async def test_does_not_open(caplog, server_and_client):
-    with caplog.at_level(logging.ERROR):
-        s, c = server_and_client
-        await s.start()
-        assert await c.connection == 200
-        open(s, 0)
-        await s.stop()
-        await c.disconnection
-    assert len(caplog.records) == 1
+async def test_does_not_open(server_and_client):
+    s, c = server_and_client
+    await s.start()
+    assert await c.connection == 200
+    with pytest.raises(Exception):
+        await open(s, 0)
+    await s.stop()
+    await c.disconnection
+    assert not s._channels
 
 
 async def test_echoes(server_and_client):
     s, c = server_and_client
     await s.start()
     assert await c.connection == 200
-    open(s)
+    await open(s)
     await send(s, 'echo', 3)
     await c.disconnection
     await s.stop()
@@ -548,7 +553,7 @@ async def test_calls(server_and_client):
     s, c = server_and_client
     await s.start()
     assert await c.connection == 200
-    open(s)
+    await open(s)
     await send(s, 'call', {'name': 'name', 'args': [1, 2]})
     await c.disconnection
     await s.stop()
@@ -563,7 +568,7 @@ async def test_calls_async(server_and_client):
     s, c = server_and_client
     await s.start()
     assert await c.connection == 200
-    open(s)
+    await open(s)
     await send(s, 'call', {'name': 'async', 'args': [1, 2]})
     await c.disconnection
     await s.stop()
@@ -579,7 +584,7 @@ async def test_does_not_call_error(caplog, server_and_client):
         s, c = server_and_client
         await s.start()
         assert await c.connection == 200
-        open(s)
+        await open(s)
         await send(s, 'call', {'name': 'error', 'args': [1, 2]})
         await c.disconnection
         await s.stop()
@@ -595,7 +600,7 @@ async def test_receives_unexpected_body_type(server_and_client):
     s, c = server_and_client
     await s.start()
     assert await c.connection == 200
-    open(s)
+    await open(s)
     await send(s, 'type')
     await c.disconnection
     await s.stop()
