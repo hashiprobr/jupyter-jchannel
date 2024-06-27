@@ -1,9 +1,3 @@
-import sys
-import os
-
-sys.path.append(os.path.abspath('../..'))
-
-
 project = 'jupyter-jchannel'
 copyright = ' 2024 Marcelo Hashimoto'
 
