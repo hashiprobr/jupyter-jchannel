@@ -5,7 +5,7 @@ build:
   tools:
     python: '3.10'
   jobs:
-    ppost_install:
+    post_install:
       - pip install aiohttp ipython ipywidgets
 
 sphinx:
