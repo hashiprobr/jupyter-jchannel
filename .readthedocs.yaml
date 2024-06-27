@@ -6,7 +6,7 @@ build:
     python: '3.10'
   jobs:
     post_install:
-      - pip install aiohttp ipython ipywidgets jupyter-jchannel
+      - pip install jupyter-jchannel ipython ipywidgets
 
 sphinx:
   configuration: docs/source/conf.py

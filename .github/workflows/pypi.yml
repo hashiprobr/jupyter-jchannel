@@ -23,7 +23,6 @@ jobs:
         pip install --upgrade pip
         pip install pipx
         pipx install poetry
-        pipx upgrade poetry
         poetry config pypi-token.pypi $PYPI_TOKEN
 
     - name: Checkout
