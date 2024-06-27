@@ -6,10 +6,7 @@ build:
     python: '3.10'
   jobs:
     post_install:
-      - pip install pipx
-      - pipx ensurepath
-      - pipx install poetry
-      - pipx upgrade poetry
+      - pip install poetry
       - poetry install
 
 sphinx:
