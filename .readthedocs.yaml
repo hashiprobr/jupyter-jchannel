@@ -8,7 +8,6 @@ build:
     post_install:
       - pip install pipx
       - pipx ensurepath
-      - pipx install
       - pipx install poetry
       - pipx upgrade poetry
       - poetry install
