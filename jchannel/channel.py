@@ -155,26 +155,26 @@ class Channel:
         return False
 
     async def _open(self, timeout):
-        result = await self._send('open', self._code, timeout)
+        result = await self._send('open', self._code, None, None, timeout)
         self._use = True
         return result
 
     async def _close(self, timeout):
-        result = await self._send('close', None, timeout)
+        result = await self._send('close', None, None, None, timeout)
         self._use = False
         return result
 
     async def _echo(self, args, timeout):
-        return await self._send('echo', args, timeout)
+        return await self._send('echo', args, None, None, timeout)
 
     async def _call(self, name, args, timeout):
-        return await self._send('call', {'name': name, 'args': args}, timeout)
+        return await self._send('call', {'name': name, 'args': args}, None, None, timeout)
 
-    async def _send(self, body_type, input, timeout):
+    async def _send(self, body_type, input, producer, consumer, timeout):
         if self._server is None:
             raise StateError('Channel is destroyed')
 
-        future = await self._server._send(body_type, id(self), input, timeout)
+        future = await self._server._send(body_type, id(self), input, producer, consumer, timeout)
 
         try:
             return await future
@@ -183,6 +183,6 @@ class Channel:
 
             await self._open(timeout)
 
-            future = await self._server._send(body_type, id(self), input, timeout)
+            future = await self._server._send(body_type, id(self), input, producer, consumer, timeout)
 
             return await future

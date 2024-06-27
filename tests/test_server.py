@@ -184,8 +184,8 @@ def s(mocker):
     return Server()
 
 
-async def send(s, body_type, input=None, timeout=3):
-    await s._send(body_type, CHANNEL_KEY, input, timeout)
+async def send(s, body_type, input=None, producer=None, consumer=None, timeout=3):
+    await s._send(body_type, CHANNEL_KEY, input, producer, consumer, timeout)
 
 
 async def test_stops_client_and_stops(s):

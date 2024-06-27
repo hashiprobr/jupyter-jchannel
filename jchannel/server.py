@@ -310,7 +310,7 @@ class Server(AbstractServer):
 
         self._cleaned.set()
 
-    async def _send(self, body_type, channel_key, input, timeout):
+    async def _send(self, body_type, channel_key, input, producer, consumer, timeout):
         if not isinstance(timeout, int):
             raise TypeError('Timeout must be an integer')
 
