@@ -6,7 +6,7 @@ build:
     python: '3.10'
   jobs:
     pre_install:
-      - pip install "aiohttp>=3.9,<4"
+      - pip install aiohttp ipython
 
 sphinx:
   configuration: docs/source/conf.py
