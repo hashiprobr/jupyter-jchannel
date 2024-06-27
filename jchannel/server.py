@@ -47,6 +47,25 @@ if __debug__:  # pragma: no cover
 
 class Server(AbstractServer):
     def __init__(self, host='localhost', port=8889, url=None, heartbeat=30):
+        '''
+        Represents a kernel server.
+
+        :param host: The host name.
+        :type host: str
+
+        :param port: The port number.
+        :type port: int
+
+        :param url: The URL accessed by the client. If ``None``, it is simply
+            ``f'http://{host}:{port}'``. If not ``None``, it is particularly
+            useful when the kernel is behind a proxy like `ngrok
+            <https://ngrok.com/>`_.
+        :type url: str or None
+
+        :param heartbeat: The WebSocket heartbeat interval in seconds.
+        :type heartbeat: int
+        '''
+
         if not isinstance(host, str):
             raise TypeError('Host must be a string')
 
@@ -124,18 +143,54 @@ class Server(AbstractServer):
         super().__init__()
 
     def start_client(self):
+        '''
+        Starts the frontend client.
+
+        Under normal circumstances, this method should not be called. It should
+        only be called for debugging or testing purposes.
+        '''
         frontend.run(f"jchannel.start('{self._url}')")
 
     def stop_client(self):
+        '''
+        Stops the frontend client.
+
+        Under normal circumstances, this method should not be called. It should
+        only be called for debugging or testing purposes.
+        '''
         frontend.run(f"jchannel.stop('{self._url}')")
 
     def start(self):
+        '''
+        Starts this server.
+
+        :return: A task that can be awaited to ensure the startup is complete.
+        :rtype: asyncio.Task
+        '''
         return asyncio.create_task(self._start())
 
     def stop(self):
+        '''
+        Stops this server.
+
+        :return: A task that can be awaited to ensure the shutdown is complete.
+        :rtype: asyncio.Task
+        '''
         return asyncio.create_task(self._stop())
 
     async def open(self, code, timeout=3):
+        '''
+        Convenience method that instantiates a communication channel, opens this
+        channel and returns it.
+
+        :param code: As defined in `jchannel.channel.Channel
+            <jchannel.channel.html#jchannel.channel.Channel>`_.
+        :param timeout: As defined in `jchannel.channel.Channel.open
+            <jchannel.channel.html#jchannel.channel.Channel.open>`_.
+
+        :return: The channel.
+        :rtype: jchannel.channel.Channel
+        '''
         channel = Channel(self, code)
         try:
             await channel._open(timeout)

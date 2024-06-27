@@ -1,20 +1,12 @@
-.. jupyter-jchannel documentation master file, created by
-   sphinx-quickstart on Tue Jan  9 15:17:18 2024.
-   You can adapt this file completely to your liking, but it should at least
-   contain the root `toctree` directive.
+================
+jupyter-jchannel
+================
 
-Welcome to jupyter-jchannel's documentation!
-============================================
+This is the public API reference for `jupyter-jchannel
+<https://github.com/hashiprobr/jupyter-jchannel>`_.
 
 .. toctree::
-   :maxdepth: 2
-   :caption: Contents:
 
-
-
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
+   jchannel
+   jchannel.server
+   jchannel.channel

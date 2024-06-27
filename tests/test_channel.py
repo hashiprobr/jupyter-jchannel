@@ -48,6 +48,7 @@ def c(server):
 
 async def test_instantiates(server, c):
     assert server._channels[id(c)] is c
+    assert c.handler is None
 
 
 async def test_does_not_set_none_handler(c):
@@ -134,8 +135,10 @@ async def test_calls_twice(caplog, server, c):
     assert len(caplog.records) == 1
 
 
-async def test_destroys_and_does_not_call(server, c):
+async def test_destroys_and_does_not_call_and_does_not_destroy(server, c):
     c.destroy()
     assert id(c) not in server._channels
     with pytest.raises(StateError):
         await c.call('name', 1, 2)
+    with pytest.raises(StateError):
+        c.destroy()

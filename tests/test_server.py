@@ -411,8 +411,8 @@ async def test_connects_does_not_connect_and_stops(server_and_client):
     s, c_0 = server_and_client
     c_1 = Client()
     await s.start()
-    c_1.start()
     assert await c_0.connection == 200
+    c_1.start()
     assert await c_1.connection == 409
     await s.stop()
     await c_0.disconnection
@@ -529,7 +529,7 @@ async def test_does_not_open(server_and_client):
         await open(s, 0)
     await s.stop()
     await c.disconnection
-    assert not s._channels
+    assert CHANNEL_KEY not in s._channels
 
 
 async def test_echoes(server_and_client):
