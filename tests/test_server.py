@@ -185,7 +185,7 @@ def s(mocker):
 
 
 async def send(s, body_type, input=None, timeout=3):
-    await s._send(body_type, input, CHANNEL_KEY, timeout)
+    await s._send(body_type, CHANNEL_KEY, input, timeout)
 
 
 async def test_stops_client_and_stops(s):

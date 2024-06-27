@@ -174,7 +174,7 @@ class Channel:
         if self._server is None:
             raise StateError('Channel is destroyed')
 
-        future = await self._server._send(body_type, input, id(self), timeout)
+        future = await self._server._send(body_type, id(self), input, timeout)
 
         try:
             return await future
@@ -183,6 +183,6 @@ class Channel:
 
             await self._open(timeout)
 
-            future = await self._server._send(body_type, input, id(self), timeout)
+            future = await self._server._send(body_type, id(self), input, timeout)
 
             return await future

@@ -31,7 +31,7 @@ class Server(AbstractServer):
         if self._closed:
             future.set_exception(StateError)
         else:
-            future.set_result([body_type, input, channel_key, timeout])
+            future.set_result([body_type, channel_key, input, timeout])
 
         return future
 
