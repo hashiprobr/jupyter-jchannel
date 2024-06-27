@@ -6,7 +6,10 @@ build:
     python: '3.10'
   jobs:
     post_install:
-      - pip install aiohttp ipython ipywidgets
+      - pip install pipx
+      - pipx install poetry
+      - pipx upgrade poetry
+      - poetry install
 
 sphinx:
   configuration: docs/source/conf.py
