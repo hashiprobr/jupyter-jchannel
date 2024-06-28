@@ -1,6 +1,13 @@
-from IPython.display import Javascript, display, clear_output
+from IPython.display import HTML, display, clear_output
 from ipywidgets import Output
 from jchannel.frontend.abstract import AbstractFrontend
+
+
+SHEET = '''
+.cell-output-ipywidget-background {
+    background-color: transparent !important;
+}
+'''
 
 
 class IPythonFrontend(AbstractFrontend):
@@ -10,8 +17,11 @@ class IPythonFrontend(AbstractFrontend):
 
     def _run(self, code):
         if self.output._view_count == 0:
+            style = HTML(f'<style>{SHEET}</style>')
+            display(style)
             display(self.output)
 
         with self.output:
-            display(Javascript(code))
+            script = HTML(f'<script>{code}</script>')
+            display(script)
             clear_output()

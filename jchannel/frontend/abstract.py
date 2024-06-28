@@ -17,8 +17,8 @@ class AbstractFrontend(ABC):
 
     def run(self, code):
         self._run(f'''
-            const promise = new Promise((resolve, reject) => {{
-                if (window.jchannel) {{
+            new Promise((resolve, reject) => {{
+                if (self.jchannel) {{
                     resolve();
                 }} else {{
                     const script = document.createElement('script');
@@ -35,9 +35,7 @@ class AbstractFrontend(ABC):
 
                     document.head.appendChild(script);
                 }}
-            }});
-
-            promise.then(() => {{
+            }}).then(() => {{
                 {code};
             }}).catch((event) => {{
                 console.error('Script error event', event);
