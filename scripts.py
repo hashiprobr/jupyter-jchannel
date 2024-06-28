@@ -7,13 +7,11 @@ from argparse import ArgumentParser
 def notebooks():
     process = subprocess.Popen(['jupyter-lab'])
 
-    running = True
-
-    while running:
+    while True:
         try:
             process.wait()
 
-            running = False
+            break
         except KeyboardInterrupt:
             pass
 
