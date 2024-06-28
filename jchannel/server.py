@@ -77,9 +77,6 @@ class Server(AbstractServer):
         if '/' in host:
             raise ValueError('Host cannot have slashes')
 
-        if ':' in host:
-            raise ValueError('Host cannot have colons')
-
         if not isinstance(port, int):
             raise TypeError('Port must be an integer')
 

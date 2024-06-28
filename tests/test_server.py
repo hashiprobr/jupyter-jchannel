@@ -102,11 +102,6 @@ async def test_does_not_instantiate_with_slash_host():
         Server('127.0/0.1', PORT, None, HEARTBEAT)
 
 
-async def test_does_not_instantiate_with_colon_host():
-    with pytest.raises(ValueError):
-        Server('127.0:0.1', PORT, None, HEARTBEAT)
-
-
 async def test_does_not_instantiate_with_non_integer_port():
     with pytest.raises(TypeError):
         Server(HOST, '8888', None, HEARTBEAT)
