@@ -9,5 +9,5 @@ jupyter-jchannel
 **Simple communication framework to call JavaScript frontend code from Python
 kernel code and vice-versa in Jupyter Notebooks.**
 
-[![Launch in Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/hashiprobr/jupyter-jchannel/main?labpath=examples%2Fbinder.ipynb)
-[![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/hashiprobr/jupyter-jchannel/blob/master/examples/colab.ipynb)
+[![Launch in Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/hashiprobr/jupyter-jchannel/main?labpath=examples%2Fremote-binder.ipynb)
+[![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/hashiprobr/jupyter-jchannel/blob/master/examples/remote-colab.ipynb)
