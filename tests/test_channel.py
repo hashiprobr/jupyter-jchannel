@@ -21,7 +21,7 @@ class Server(AbstractServer):
         self._closed = False
         super().__init__()
 
-    async def _send(self, body_type, channel_key, input, producer, timeout):
+    async def _send(self, body_type, channel_key, input, chunks, timeout):
         loop = asyncio.get_running_loop()
         future = loop.create_future()
 
@@ -31,7 +31,7 @@ class Server(AbstractServer):
         if self._closed:
             future.set_exception(StateError)
         else:
-            future.set_result([body_type, channel_key, input, producer, timeout])
+            future.set_result([body_type, channel_key, input, chunks, timeout])
 
         return future
 

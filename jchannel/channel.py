@@ -170,11 +170,11 @@ class Channel:
     async def _call(self, name, args, timeout):
         return await self._send('call', {'name': name, 'args': args}, None, timeout)
 
-    async def _send(self, body_type, input, producer, timeout):
+    async def _send(self, body_type, input, chunks, timeout):
         if self._server is None:
             raise StateError('Channel is destroyed')
 
-        future = await self._server._send(body_type, id(self), input, producer, timeout)
+        future = await self._server._send(body_type, id(self), input, chunks, timeout)
 
         try:
             return await future
@@ -183,6 +183,6 @@ class Channel:
 
             await self._open(timeout)
 
-            future = await self._server._send(body_type, id(self), input, producer, timeout)
+            future = await self._server._send(body_type, id(self), input, chunks, timeout)
 
             return await future
