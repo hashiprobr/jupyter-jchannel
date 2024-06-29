@@ -21,7 +21,7 @@ class Server(AbstractServer):
         self._closed = False
         super().__init__()
 
-    async def _send(self, body_type, channel_key, input, producer, consumer, timeout):
+    async def _send(self, body_type, channel_key, input, producer, timeout):
         loop = asyncio.get_running_loop()
         future = loop.create_future()
 
@@ -31,7 +31,7 @@ class Server(AbstractServer):
         if self._closed:
             future.set_exception(StateError)
         else:
-            future.set_result([body_type, channel_key, input, producer, consumer, timeout])
+            future.set_result([body_type, channel_key, input, producer, timeout])
 
         return future
 
@@ -94,12 +94,12 @@ async def test_does_not_handle_call_without_callable_handler_attribute(c):
 
 
 async def test_opens(c):
-    output = ['open', id(c), CODE, None, None, 3]
+    output = ['open', id(c), CODE, None, 3]
     assert await c.open() == output
 
 
 async def test_closes(c):
-    output = ['close', id(c), None, None, None, 3]
+    output = ['close', id(c), None, None, 3]
     assert await c.close() == output
 
 
@@ -110,27 +110,27 @@ async def test_opens_does_not_destroy_and_closes(c):
 
 
 async def test_echoes(c):
-    output = ['echo', id(c), (1, 2), None, None, 3]
+    output = ['echo', id(c), (1, 2), None, 3]
     assert await c.echo(1, 2) == output
 
 
 async def test_echoes_twice(caplog, server, c):
     with caplog.at_level(logging.WARNING):
         server._closed = True
-        output = ['echo', id(c), (1, 2), None, None, 3]
+        output = ['echo', id(c), (1, 2), None, 3]
         assert await c.echo(1, 2) == output
     assert len(caplog.records) == 1
 
 
 async def test_calls(c):
-    output = ['call', id(c), {'name': 'name', 'args': (1, 2)}, None, None, 3]
+    output = ['call', id(c), {'name': 'name', 'args': (1, 2)}, None, 3]
     assert await c.call('name', 1, 2) == output
 
 
 async def test_calls_twice(caplog, server, c):
     with caplog.at_level(logging.WARNING):
         server._closed = True
-        output = ['call', id(c), {'name': 'name', 'args': (1, 2)}, None, None, 3]
+        output = ['call', id(c), {'name': 'name', 'args': (1, 2)}, None, 3]
         assert await c.call('name', 1, 2) == output
     assert len(caplog.records) == 1
 
