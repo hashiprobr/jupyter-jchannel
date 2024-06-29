@@ -4,16 +4,26 @@ import subprocess
 from argparse import ArgumentParser
 
 
-def notebooks():
-    process = subprocess.Popen(['jupyter-lab'])
-
+def _open(name):
+    process = subprocess.Popen([f'jupyter-{name}'])
     while True:
         try:
             process.wait()
-
             break
         except KeyboardInterrupt:
             pass
+
+
+def nbclassic():
+    _open('nbclassic')
+
+
+def notebook():
+    _open('notebook')
+
+
+def lab():
+    _open('lab')
 
 
 def tests():
