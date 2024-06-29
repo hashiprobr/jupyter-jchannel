@@ -14,7 +14,7 @@ class AbstractServer(ABC):
         self._channels = {}
 
     @abstractmethod
-    async def _send(self, body_type, channel_key, input, chunks, timeout):
+    async def _send(self, body_type, channel_key, input, stream, timeout):
         '''
         Sends WebSocket message.
         '''
