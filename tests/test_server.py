@@ -18,6 +18,9 @@ HEARTBEAT = 3
 FUTURE_KEY = 123
 CHANNEL_KEY = 456
 
+CONTENT_LENGTH = 1024
+CONTENT_ENCODING = 'utf-8'
+
 
 async def test_instantiates():
     server = Server(HOST, PORT, None, HEARTBEAT)
@@ -196,6 +199,11 @@ async def test_starts_twice_and_stops_twice(s):
     await task
 
 
+async def test_does_not_send_with_invalid_stream(s):
+    with pytest.raises(TypeError):
+        await send(s, 'close', stream=True)
+
+
 async def test_does_not_send_with_non_integer_timeout(s):
     with pytest.raises(TypeError):
         await send(s, 'close', timeout='3')
@@ -235,7 +243,7 @@ class MockChannel:
 
         self.destroy = destroy
 
-    def _handle_call(self, name, args):
+    def _handle(self, name, args):
         if name == 'error':
             raise Exception
         if name == 'async':
@@ -254,6 +262,7 @@ class Client:
     def __init__(self):
         self.stopped = True
         self.body = None
+        self.content = None
 
     def start(self):
         if self.stopped:
@@ -277,36 +286,53 @@ class Client:
         return json.dumps(body)
 
     async def _run(self):
-        async with ClientSession() as session:
+        async with ClientSession('ws://localhost:8889') as session:
             try:
-                async with session.ws_connect(f'ws://localhost:8889/socket') as socket:
+                async with session.ws_connect('/socket') as socket:
                     self.connection.set_result(200)
 
                     async for message in socket:
                         body = json.loads(message.data)
 
-                        match body['type']:
-                            case 'exception' | 'result':
-                                self.body = body
-                                await socket.close()
-                                break
-                            case 'socket-close':
-                                await socket.close()
-                                break
-                            case 'socket-bytes':
-                                await socket.send_bytes(b'')
-                            case 'empty-message':
-                                await socket.send_str('')
-                            case 'empty-body':
-                                await socket.send_str('{}')
-                            case 'mock-closed':
-                                await socket.send_str(self._dumps('closed', None))
-                            case 'mock-exception':
-                                await socket.send_str(self._dumps('exception', 'message'))
-                            case 'mock-result':
-                                await socket.send_str(self._dumps('result', 'true'))
-                            case _:
-                                await socket.send_str(message.data)
+                        stream_key = body['stream']
+
+                        if stream_key is None:
+                            body_type = body['type']
+
+                            match body_type:
+                                case 'exception' | 'result':
+                                    self.body = body
+                                    await socket.close()
+                                case 'socket-close':
+                                    await socket.close()
+                                case 'socket-bytes':
+                                    await socket.send_bytes(b'')
+                                case 'empty-message':
+                                    await socket.send_str('')
+                                case 'empty-body':
+                                    await socket.send_str('{}')
+                                case 'mock-closed':
+                                    await socket.send_str(self._dumps('closed', None))
+                                case 'mock-exception':
+                                    await socket.send_str(self._dumps('exception', 'message'))
+                                case 'mock-result':
+                                    await socket.send_str(self._dumps('result', 'true'))
+                                case 'bad-get':
+                                    async with session.get('/') as response:
+                                        assert response.status == 400
+                                    await socket.close()
+                                case _:
+                                    await socket.send_str(message.data)
+                        else:
+                            headers = {
+                                'x-jchannel-stream': str(body['stream']),
+                            }
+
+                            async with session.get('/', headers=headers) as response:
+                                assert response.status == 200
+                                self.content = await response.content.read()
+
+                            await socket.close()
             except WSServerHandshakeError as error:
                 self.connection.set_result(error.status)
 
@@ -535,11 +561,12 @@ async def test_echoes(server_and_client):
     await send(s, 'echo', 3)
     await c.disconnection
     await s.stop()
-    assert len(c.body) == 4
+    assert len(c.body) == 5
     assert c.body['type'] == 'result'
     assert c.body['payload'] == '3'
     assert c.body['channel'] == CHANNEL_KEY
     assert c.body['future'] == FUTURE_KEY
+    assert c.body['stream'] is None
 
 
 async def test_calls(server_and_client):
@@ -550,11 +577,12 @@ async def test_calls(server_and_client):
     await send(s, 'call', {'name': 'name', 'args': [1, 2]})
     await c.disconnection
     await s.stop()
-    assert len(c.body) == 4
+    assert len(c.body) == 5
     assert c.body['type'] == 'result'
     assert c.body['payload'] == '[1, 2]'
     assert c.body['channel'] == CHANNEL_KEY
     assert c.body['future'] == FUTURE_KEY
+    assert c.body['stream'] is None
 
 
 async def test_calls_async(server_and_client):
@@ -565,11 +593,12 @@ async def test_calls_async(server_and_client):
     await send(s, 'call', {'name': 'async', 'args': [1, 2]})
     await c.disconnection
     await s.stop()
-    assert len(c.body) == 4
+    assert len(c.body) == 5
     assert c.body['type'] == 'result'
     assert c.body['payload'] == '[1, 2]'
     assert c.body['channel'] == CHANNEL_KEY
     assert c.body['future'] == FUTURE_KEY
+    assert c.body['stream'] is None
 
 
 async def test_does_not_call_error(caplog, server_and_client):
@@ -581,11 +610,12 @@ async def test_does_not_call_error(caplog, server_and_client):
         await send(s, 'call', {'name': 'error', 'args': [1, 2]})
         await c.disconnection
         await s.stop()
-        assert len(c.body) == 4
+        assert len(c.body) == 5
         assert c.body['type'] == 'exception'
         assert isinstance(c.body['payload'], str)
         assert c.body['channel'] == CHANNEL_KEY
         assert c.body['future'] == FUTURE_KEY
+        assert c.body['stream'] is None
     assert len(caplog.records) == 1
 
 
@@ -597,8 +627,52 @@ async def test_receives_unexpected_body_type(server_and_client):
     await send(s, 'type')
     await c.disconnection
     await s.stop()
-    assert len(c.body) == 4
+    assert len(c.body) == 5
     assert c.body['type'] == 'exception'
     assert isinstance(c.body['payload'], str)
     assert c.body['channel'] == CHANNEL_KEY
     assert c.body['future'] == FUTURE_KEY
+    assert c.body['stream'] is None
+
+
+async def test_gets(server_and_client):
+    array = bytearray()
+
+    async def generate():
+        for i in range(CONTENT_LENGTH):
+            b = bytes(str(i), CONTENT_ENCODING)
+            array.extend(b)
+            yield b
+
+    s, c = server_and_client
+    await s.start()
+    assert await c.connection == 200
+    await send(s, 'type', stream=generate())
+    await c.disconnection
+    await s.stop()
+
+    assert c.content == bytes(array)
+
+
+async def test_gets_partial(server_and_client):
+    async def generate():
+        yield b'content'
+        yield True
+
+    s, c = server_and_client
+    await s.start()
+    assert await c.connection == 200
+    await send(s, 'type', stream=generate())
+    await c.disconnection
+    await s.stop()
+
+    assert c.content == b'content'
+
+
+async def test_does_not_get(server_and_client):
+    s, c = server_and_client
+    await s.start()
+    assert await c.connection == 200
+    await send(s, 'bad-get')
+    await c.disconnection
+    await s.stop()

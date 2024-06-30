@@ -3,7 +3,7 @@ import asyncio
 import logging
 
 from enum import Enum, auto
-from inspect import isawaitable
+from inspect import isasyncgen, isawaitable
 from aiohttp import web, WSMsgType
 from jchannel.types import AbstractServer, JavascriptError, StateError
 from jchannel.registry import Registry
@@ -136,6 +136,7 @@ class Server(AbstractServer):
         if __debug__:  # pragma: no cover
             self._sentinel = DebugSentinel()
 
+        self._streams = {}
         self._registry = Registry()
         super().__init__()
 
@@ -280,6 +281,7 @@ class Server(AbstractServer):
             if __debug__:  # pragma: no cover
                 await self._sentinel.set_and_yield(DebugScenario.READ_DISCONNECTION_STATE_AFTER_DISCONNECTION_RESULT_IS_SET)
 
+            self._streams.clear()
             self._registry.clear()
 
             if restart:
@@ -308,6 +310,9 @@ class Server(AbstractServer):
         self._cleaned.set()
 
     async def _send(self, body_type, channel_key, input, stream, timeout):
+        if stream is not None and not isasyncgen(stream):
+            raise TypeError('Stream must be an async generator')
+
         if not isinstance(timeout, int):
             raise TypeError('Timeout must be an integer')
 
@@ -347,11 +352,19 @@ class Server(AbstractServer):
             'payload': payload,
         }
 
-        await self._accept(socket, body_type, body)
+        await self._accept(socket, body_type, stream, body)
 
         return future
 
-    async def _accept(self, socket, body_type, body):
+    async def _accept(self, socket, body_type, stream, body):
+        if stream is None:
+            stream_key = None
+        else:
+            stream_key = id(stream)
+            self._streams[stream_key] = stream
+
+        body['stream'] = stream_key
+
         body['type'] = body_type
 
         data = json.dumps(body)
@@ -427,7 +440,10 @@ class Server(AbstractServer):
                                 case 'echo':
                                     body_type = 'result'
                                 case 'call':
-                                    output = channel._handle_call(input['name'], input['args'])
+                                    name = input.pop('name')
+                                    args = input.pop('args')
+
+                                    output = channel._handle(name, args)
                                     if isawaitable(output):
                                         output = await output
 
@@ -444,7 +460,7 @@ class Server(AbstractServer):
 
                         body['payload'] = payload
 
-                        await self._accept(socket, body_type, body)
+                        await self._accept(socket, body_type, None, body)
         except:
             logging.exception('Socket message exception')
 
@@ -462,9 +478,28 @@ class Server(AbstractServer):
         return socket
 
     async def _handle_get(self, request):
-        '''
-        TODO
-        '''
+        try:
+            stream_key = int(request.headers.getone('x-jchannel-stream'))
+
+            stream = self._streams.pop(stream_key)
+        except:
+            logging.exception('Get request exception')
+
+            return web.Response(status=400)
+
+        response = web.StreamResponse()
+
+        await response.prepare(request)
+
+        try:
+            async for chunk in stream:
+                await response.write(chunk)
+        except:
+            logging.exception('Get reading exception')
+
+        await response.write_eof()
+
+        return response
 
     async def _handle_post(self, request):
         '''

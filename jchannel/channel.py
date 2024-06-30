@@ -130,7 +130,7 @@ class Channel:
             raise ValueError('Handler cannot be None')
         self._handler = value
 
-    def _handle_call(self, name, args):
+    def _handle(self, name, args):
         method = self._method(name)
 
         return method(*args)

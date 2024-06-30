@@ -56,41 +56,41 @@ async def test_does_not_set_none_handler(c):
         c.handler = None
 
 
-async def test_handles_call_with_result(c):
+async def test_handles_with_result(c):
     class Handler:
         def name(self, a, b):
             return a + b
     c.handler = Handler()
-    assert c._handle_call('name', [1, 2]) == 3
+    assert c._handle('name', [1, 2]) == 3
 
 
-async def test_handles_call_with_exception(c):
+async def test_handles_with_exception(c):
     class Handler:
         def name(self, a, b):
             raise Exception
     c.handler = Handler()
     with pytest.raises(Exception):
-        c._handle_call('name', [1, 2])
+        c._handle('name', [1, 2])
 
 
-async def test_does_not_handle_call_without_handler(c):
+async def test_does_not_handle_without_handler(c):
     with pytest.raises(ValueError):
-        c._handle_call('name', [1, 2])
+        c._handle('name', [1, 2])
 
 
-async def test_does_not_handle_call_without_handler_attribute(c):
+async def test_does_not_handle_without_handler_attribute(c):
     c.handler = object()
     with pytest.raises(AttributeError):
-        c._handle_call('name', [1, 2])
+        c._handle('name', [1, 2])
 
 
-async def test_does_not_handle_call_without_callable_handler_attribute(c):
+async def test_does_not_handle_without_callable_handler_attribute(c):
     class Handler:
         def __init__(self):
             self.name = True
     c.handler = Handler()
     with pytest.raises(TypeError):
-        c._handle_call('name', [1, 2])
+        c._handle('name', [1, 2])
 
 
 async def test_opens(c):
