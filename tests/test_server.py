@@ -324,9 +324,7 @@ class Client:
                                 case _:
                                     await socket.send_str(message.data)
                         else:
-                            headers = {
-                                'x-jchannel-stream': str(body['stream']),
-                            }
+                            headers = {'x-jchannel-stream': str(stream_key)}
 
                             async with session.get('/', headers=headers) as response:
                                 assert response.status == 200
@@ -608,6 +606,60 @@ async def test_does_not_call_error(caplog, server_and_client):
         assert await c.connection == 200
         await open(s)
         await send(s, 'call', {'name': 'error', 'args': [1, 2]})
+        await c.disconnection
+        await s.stop()
+        assert len(c.body) == 5
+        assert c.body['type'] == 'exception'
+        assert isinstance(c.body['payload'], str)
+        assert c.body['channel'] == CHANNEL_KEY
+        assert c.body['future'] == FUTURE_KEY
+        assert c.body['stream'] is None
+    assert len(caplog.records) == 1
+
+
+async def test_does_not_call_with_empty_input(caplog, server_and_client):
+    with caplog.at_level(logging.ERROR):
+        s, c = server_and_client
+        await s.start()
+        assert await c.connection == 200
+        await open(s)
+        await send(s, 'call', {})
+        await c.disconnection
+        await s.stop()
+        assert len(c.body) == 5
+        assert c.body['type'] == 'exception'
+        assert isinstance(c.body['payload'], str)
+        assert c.body['channel'] == CHANNEL_KEY
+        assert c.body['future'] == FUTURE_KEY
+        assert c.body['stream'] is None
+    assert len(caplog.records) == 1
+
+
+async def test_does_not_call_with_non_string_name(caplog, server_and_client):
+    with caplog.at_level(logging.ERROR):
+        s, c = server_and_client
+        await s.start()
+        assert await c.connection == 200
+        await open(s)
+        await send(s, 'call', {'name': True, 'args': [1, 2]})
+        await c.disconnection
+        await s.stop()
+        assert len(c.body) == 5
+        assert c.body['type'] == 'exception'
+        assert isinstance(c.body['payload'], str)
+        assert c.body['channel'] == CHANNEL_KEY
+        assert c.body['future'] == FUTURE_KEY
+        assert c.body['stream'] is None
+    assert len(caplog.records) == 1
+
+
+async def test_does_not_call_with_non_list_args(caplog, server_and_client):
+    with caplog.at_level(logging.ERROR):
+        s, c = server_and_client
+        await s.start()
+        assert await c.connection == 200
+        await open(s)
+        await send(s, 'call', {'name': 'name', 'args': True})
         await c.disconnection
         await s.stop()
         assert len(c.body) == 5

@@ -443,6 +443,12 @@ class Server(AbstractServer):
                                     name = input.pop('name')
                                     args = input.pop('args')
 
+                                    if not isinstance(name, str):
+                                        raise TypeError('Name must be a string')
+
+                                    if not isinstance(args, list):
+                                        raise TypeError('Args must be a list')
+
                                     output = channel._handle(name, args)
                                     if isawaitable(output):
                                         output = await output
