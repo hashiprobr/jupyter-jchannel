@@ -320,7 +320,6 @@ class Client:
                                 case 'bad-get':
                                     async with session.get('/') as response:
                                         assert response.status == 400
-                                    await socket.close()
                                 case _:
                                     await socket.send_str(message.data)
                         else:
@@ -328,9 +327,8 @@ class Client:
 
                             async with session.get('/', headers=headers) as response:
                                 assert response.status == 200
-                                self.content = await response.content.read()
 
-                            await socket.close()
+                                self.content = await response.content.read()
             except WSServerHandshakeError as error:
                 self.connection.set_result(error.status)
 
@@ -700,6 +698,7 @@ async def test_gets(server_and_client):
     await s.start()
     assert await c.connection == 200
     await send(s, 'type', stream=generate())
+    await send(s, 'socket-close')
     await c.disconnection
     await s.stop()
 
@@ -708,17 +707,18 @@ async def test_gets(server_and_client):
 
 async def test_gets_partial(server_and_client):
     async def generate():
-        yield b'content'
+        yield b'get'
         yield True
 
     s, c = server_and_client
     await s.start()
     assert await c.connection == 200
     await send(s, 'type', stream=generate())
+    await send(s, 'socket-close')
     await c.disconnection
     await s.stop()
 
-    assert c.content == b'content'
+    assert c.content == b'get'
 
 
 async def test_does_not_get(server_and_client):
@@ -726,5 +726,6 @@ async def test_does_not_get(server_and_client):
     await s.start()
     assert await c.connection == 200
     await send(s, 'bad-get')
+    await send(s, 'socket-close')
     await c.disconnection
     await s.stop()
