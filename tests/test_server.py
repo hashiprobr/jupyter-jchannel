@@ -320,6 +320,14 @@ class Client:
                                 case 'bad-get':
                                     async with session.get('/') as response:
                                         assert response.status == 400
+                                case 'bad-post':
+                                    async with session.post('/') as response:
+                                        assert response.status == 400
+                                case 'good-post':
+                                    headers = {'x-jchannel-data': message.data}
+
+                                    async with session.post('/', headers=headers) as response:
+                                        assert response.status == 200
                                 case _:
                                     await socket.send_str(message.data)
                         else:
@@ -705,27 +713,53 @@ async def test_gets(server_and_client):
     assert c.content == bytes(array)
 
 
-async def test_gets_partial(server_and_client):
+async def test_gets_partial(caplog, server_and_client):
     async def generate():
         yield b'get'
         yield True
 
-    s, c = server_and_client
-    await s.start()
-    assert await c.connection == 200
-    await send(s, 'type', stream=generate())
-    await send(s, 'socket-close')
-    await c.disconnection
-    await s.stop()
+    with caplog.at_level(logging.ERROR):
+        s, c = server_and_client
+        await s.start()
+        assert await c.connection == 200
+        await send(s, 'type', stream=generate())
+        await send(s, 'socket-close')
+        await c.disconnection
+        await s.stop()
+    assert len(caplog.records) == 1
 
     assert c.content == b'get'
 
 
-async def test_does_not_get(server_and_client):
+async def test_does_not_get(caplog, server_and_client):
+    with caplog.at_level(logging.ERROR):
+        s, c = server_and_client
+        await s.start()
+        assert await c.connection == 200
+        await send(s, 'bad-get')
+        await send(s, 'socket-close')
+        await c.disconnection
+        await s.stop()
+    assert len(caplog.records) == 1
+
+
+async def test_does_not_post(caplog, server_and_client):
+    with caplog.at_level(logging.ERROR):
+        s, c = server_and_client
+        await s.start()
+        assert await c.connection == 200
+        await send(s, 'bad-post')
+        await send(s, 'socket-close')
+        await c.disconnection
+        await s.stop()
+    assert len(caplog.records) == 1
+
+
+async def test_posts(server_and_client):
     s, c = server_and_client
     await s.start()
     assert await c.connection == 200
-    await send(s, 'bad-get')
+    await send(s, 'good-post')
     await send(s, 'socket-close')
     await c.disconnection
     await s.stop()

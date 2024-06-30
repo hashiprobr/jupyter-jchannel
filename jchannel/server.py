@@ -508,6 +508,18 @@ class Server(AbstractServer):
         return response
 
     async def _handle_post(self, request):
-        '''
-        TODO
-        '''
+        try:
+            data = request.headers.getone('x-jchannel-data')
+
+            body = json.loads(data)
+
+            future_key = body['future']
+            channel_key = body['channel']
+            payload = body.pop('payload')
+            body_type = body.pop('type')
+        except:
+            logging.exception('Post request exception')
+
+            return web.Response(status=400)
+
+        return web.Response()
