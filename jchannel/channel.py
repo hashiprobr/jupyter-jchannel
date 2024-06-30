@@ -131,11 +131,6 @@ class Channel:
         self._handler = value
 
     def _handle(self, name, args):
-        method = self._method(name)
-
-        return method(*args)
-
-    def _method(self, name):
         if self._handler is None:
             raise ValueError('Channel does not have handler')
 
@@ -144,7 +139,7 @@ class Channel:
         if not callable(method):
             raise TypeError(f'Handler attribute {name} is not callable')
 
-        return method
+        return method(*args)
 
     async def __aenter__(self):
         await self._open(3)
