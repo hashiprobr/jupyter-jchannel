@@ -246,6 +246,13 @@ class MockChannel:
     def _handle(self, name, args):
         if name == 'error':
             raise Exception
+        if name == 'octet':
+            async def generate():
+                async for chunk in args[-1].iter_any():
+                    yield chunk
+            return generate()
+        if name == 'plain':
+            return args[:-1]
         if name == 'async':
             return self._resolve(args)
         return args
@@ -262,7 +269,8 @@ class Client:
     def __init__(self):
         self.stopped = True
         self.body = None
-        self.content = None
+        self.gotten = None
+        self.posted = None
 
     def start(self):
         if self.stopped:
@@ -285,11 +293,32 @@ class Client:
 
         return json.dumps(body)
 
+    async def _post(self, session, body_type, payload, status):
+        self.posted = bytearray()
+
+        async def generate():
+            for i in range(CONTENT_LENGTH):
+                b = bytes(str(i), CONTENT_ENCODING)
+                self.posted.extend(b)
+                yield b
+
+        headers = {'x-jchannel-data': self._dumps(body_type, payload)}
+
+        async with session.post('/', data=generate(), headers=headers) as response:
+            assert response.status == status
+
+            self.gotten = await response.content.read()
+
+    async def _post_call(self, session, name, status):
+        payload = f'{{"name": "{name}", "args": [1, 2]}}'
+
+        await self._post(session, 'call', payload, status)
+
     async def _run(self):
         async with ClientSession('ws://localhost:8889') as session:
             try:
                 async with session.ws_connect('/socket') as socket:
-                    self.connection.set_result(200)
+                    self.connection.set_result(101)
 
                     async for message in socket:
                         body = json.loads(message.data)
@@ -317,17 +346,22 @@ class Client:
                                     await socket.send_str(self._dumps('exception', 'message'))
                                 case 'mock-result':
                                     await socket.send_str(self._dumps('result', 'true'))
-                                case 'bad-get':
+                                case 'get-empty':
                                     async with session.get('/') as response:
                                         assert response.status == 400
-                                case 'bad-post':
+                                case 'post-empty':
                                     async with session.post('/') as response:
                                         assert response.status == 400
-                                case 'good-post':
-                                    headers = {'x-jchannel-data': message.data}
-
-                                    async with session.post('/', headers=headers) as response:
-                                        assert response.status == 200
+                                case 'post-error':
+                                    await self._post_call(session, 'error', 502)
+                                case 'post-octet':
+                                    await self._post_call(session, 'octet', 200)
+                                case 'post-plain':
+                                    await self._post_call(session, 'plain', 200)
+                                case 'post-unexpected':
+                                    await self._post(session, 'type', 'null', 501)
+                                case 'post-result':
+                                    await self._post(session, 'result', None, 200)
                                 case _:
                                     await socket.send_str(message.data)
                         else:
@@ -336,7 +370,7 @@ class Client:
                             async with session.get('/', headers=headers) as response:
                                 assert response.status == 200
 
-                                self.content = await response.content.read()
+                                self.gotten = await response.content.read()
             except WSServerHandshakeError as error:
                 self.connection.set_result(error.status)
 
@@ -384,7 +418,7 @@ async def open(s, timeout=3):
 async def test_connects_and_stops_twice(server_and_client):
     s, c = server_and_client
     await s._start(DebugScenario.READ_SESSION_REFERENCES_AFTER_SESSION_REFERENCES_ARE_NONE)
-    assert await c.connection == 200
+    assert await c.connection == 101
     task = s.stop()
     await s.stop()
     await task
@@ -395,7 +429,7 @@ async def test_connects_and_stops_twice(server_and_client):
 async def test_connects_disconnects_does_not_send_and_stops(server_and_client):
     s, c = server_and_client
     await s._start(DebugScenario.READ_DISCONNECTION_STATE_AFTER_DISCONNECTION_RESULT_IS_SET)
-    assert await c.connection == 200
+    assert await c.connection == 101
     await send(s, 'socket-close')
     await c.disconnection
     with pytest.raises(StateError):
@@ -409,7 +443,7 @@ async def test_does_not_send_connects_and_stops(server_and_client):
     await s._start(DebugScenario.READ_SOCKET_PREPARATION_BEFORE_SOCKET_IS_PREPARED)
     with pytest.raises(StateError):
         await send(s, 'close')
-    assert await c.connection == 200
+    assert await c.connection == 101
     await s.stop()
     await c.disconnection
     assert s._registry.clear.call_count == 1
@@ -436,7 +470,7 @@ async def test_connects_does_not_connect_and_stops(server_and_client):
     s, c_0 = server_and_client
     c_1 = Client()
     await s.start()
-    assert await c_0.connection == 200
+    assert await c_0.connection == 101
     c_1.start()
     assert await c_1.connection == 409
     await s.stop()
@@ -448,7 +482,7 @@ async def test_connects_does_not_start_and_stops(server_and_client):
     s_0, c = server_and_client
     s_1 = Server()
     await s_0.start()
-    assert await c.connection == 200
+    assert await c.connection == 101
     with pytest.raises(OSError):
         await s_1.start()
     await s_0.stop()
@@ -459,7 +493,7 @@ async def test_connects_does_not_start_and_stops_twice(server_and_client):
     s_0, c = server_and_client
     s_1 = Server()
     await s_0.start()
-    assert await c.connection == 200
+    assert await c.connection == 101
     with pytest.raises(OSError):
         task_start = s_1.start()
         task_stop = s_1.stop()
@@ -473,7 +507,7 @@ async def test_receives_unexpected_message_type(caplog, server_and_client):
     with caplog.at_level(logging.ERROR):
         s, c = server_and_client
         await s.start()
-        assert await c.connection == 200
+        assert await c.connection == 101
         await send(s, 'socket-bytes')
         await c.disconnection
         with pytest.raises(StateError):
@@ -486,7 +520,7 @@ async def test_receives_empty_message(caplog, server_and_client):
     with caplog.at_level(logging.ERROR):
         s, c = server_and_client
         await s.start()
-        assert await c.connection == 200
+        assert await c.connection == 101
         await send(s, 'empty-message')
         await c.disconnection
         with pytest.raises(StateError):
@@ -499,7 +533,7 @@ async def test_receives_empty_body(caplog, server_and_client):
     with caplog.at_level(logging.ERROR):
         s, c = server_and_client
         await s.start()
-        assert await c.connection == 200
+        assert await c.connection == 101
         await send(s, 'empty-body')
         await c.disconnection
         with pytest.raises(StateError):
@@ -511,7 +545,7 @@ async def test_receives_empty_body(caplog, server_and_client):
 async def test_receives_closed(future, server_and_client):
     s, c = server_and_client
     await s.start()
-    assert await c.connection == 200
+    assert await c.connection == 101
     await send(s, 'mock-closed')
     await send(s, 'socket-close')
     await c.disconnection
@@ -522,7 +556,7 @@ async def test_receives_closed(future, server_and_client):
 async def test_receives_exception(future, server_and_client):
     s, c = server_and_client
     await s.start()
-    assert await c.connection == 200
+    assert await c.connection == 101
     await send(s, 'mock-exception')
     await send(s, 'socket-close')
     await c.disconnection
@@ -536,7 +570,7 @@ async def test_receives_exception(future, server_and_client):
 async def test_receives_result(future, server_and_client):
     s, c = server_and_client
     await s.start()
-    assert await c.connection == 200
+    assert await c.connection == 101
     await send(s, 'mock-result')
     await send(s, 'socket-close')
     await c.disconnection
@@ -549,7 +583,7 @@ async def test_receives_result(future, server_and_client):
 async def test_does_not_open(server_and_client):
     s, c = server_and_client
     await s.start()
-    assert await c.connection == 200
+    assert await c.connection == 101
     with pytest.raises(Exception):
         await open(s, 0)
     await s.stop()
@@ -560,7 +594,7 @@ async def test_does_not_open(server_and_client):
 async def test_echoes(server_and_client):
     s, c = server_and_client
     await s.start()
-    assert await c.connection == 200
+    assert await c.connection == 101
     await open(s)
     await send(s, 'echo', 3)
     await c.disconnection
@@ -576,7 +610,7 @@ async def test_echoes(server_and_client):
 async def test_calls(server_and_client):
     s, c = server_and_client
     await s.start()
-    assert await c.connection == 200
+    assert await c.connection == 101
     await open(s)
     await send(s, 'call', {'name': 'name', 'args': [1, 2]})
     await c.disconnection
@@ -592,7 +626,7 @@ async def test_calls(server_and_client):
 async def test_calls_async(server_and_client):
     s, c = server_and_client
     await s.start()
-    assert await c.connection == 200
+    assert await c.connection == 101
     await open(s)
     await send(s, 'call', {'name': 'async', 'args': [1, 2]})
     await c.disconnection
@@ -609,7 +643,7 @@ async def test_does_not_call_error(caplog, server_and_client):
     with caplog.at_level(logging.ERROR):
         s, c = server_and_client
         await s.start()
-        assert await c.connection == 200
+        assert await c.connection == 101
         await open(s)
         await send(s, 'call', {'name': 'error', 'args': [1, 2]})
         await c.disconnection
@@ -627,7 +661,7 @@ async def test_does_not_call_with_empty_input(caplog, server_and_client):
     with caplog.at_level(logging.ERROR):
         s, c = server_and_client
         await s.start()
-        assert await c.connection == 200
+        assert await c.connection == 101
         await open(s)
         await send(s, 'call', {})
         await c.disconnection
@@ -645,7 +679,7 @@ async def test_does_not_call_with_non_string_name(caplog, server_and_client):
     with caplog.at_level(logging.ERROR):
         s, c = server_and_client
         await s.start()
-        assert await c.connection == 200
+        assert await c.connection == 101
         await open(s)
         await send(s, 'call', {'name': True, 'args': [1, 2]})
         await c.disconnection
@@ -663,7 +697,7 @@ async def test_does_not_call_with_non_list_args(caplog, server_and_client):
     with caplog.at_level(logging.ERROR):
         s, c = server_and_client
         await s.start()
-        assert await c.connection == 200
+        assert await c.connection == 101
         await open(s)
         await send(s, 'call', {'name': 'name', 'args': True})
         await c.disconnection
@@ -680,7 +714,7 @@ async def test_does_not_call_with_non_list_args(caplog, server_and_client):
 async def test_receives_unexpected_body_type(server_and_client):
     s, c = server_and_client
     await s.start()
-    assert await c.connection == 200
+    assert await c.connection == 101
     await open(s)
     await send(s, 'type')
     await c.disconnection
@@ -693,7 +727,7 @@ async def test_receives_unexpected_body_type(server_and_client):
     assert c.body['stream'] is None
 
 
-async def test_gets(server_and_client):
+async def test_handles_get(server_and_client):
     array = bytearray()
 
     async def generate():
@@ -704,62 +738,109 @@ async def test_gets(server_and_client):
 
     s, c = server_and_client
     await s.start()
-    assert await c.connection == 200
+    assert await c.connection == 101
     await send(s, 'type', stream=generate())
     await send(s, 'socket-close')
     await c.disconnection
     await s.stop()
 
-    assert c.content == bytes(array)
+    assert c.gotten == array
 
 
-async def test_gets_partial(caplog, server_and_client):
+async def test_handles_partial_get(caplog, server_and_client):
     async def generate():
-        yield b'get'
+        yield b'chunk'
         yield True
 
     with caplog.at_level(logging.ERROR):
         s, c = server_and_client
         await s.start()
-        assert await c.connection == 200
+        assert await c.connection == 101
         await send(s, 'type', stream=generate())
         await send(s, 'socket-close')
         await c.disconnection
         await s.stop()
     assert len(caplog.records) == 1
 
-    assert c.content == b'get'
+    assert c.gotten == b'chunk'
 
 
-async def test_does_not_get(caplog, server_and_client):
+async def test_does_not_handle_empty_get(caplog, server_and_client):
     with caplog.at_level(logging.ERROR):
         s, c = server_and_client
         await s.start()
-        assert await c.connection == 200
-        await send(s, 'bad-get')
+        assert await c.connection == 101
+        await send(s, 'get-empty')
         await send(s, 'socket-close')
         await c.disconnection
         await s.stop()
     assert len(caplog.records) == 1
 
 
-async def test_does_not_post(caplog, server_and_client):
-    with caplog.at_level(logging.ERROR):
-        s, c = server_and_client
-        await s.start()
-        assert await c.connection == 200
-        await send(s, 'bad-post')
-        await send(s, 'socket-close')
-        await c.disconnection
-        await s.stop()
-    assert len(caplog.records) == 1
-
-
-async def test_posts(server_and_client):
+async def test_handles_result_post(server_and_client):
     s, c = server_and_client
     await s.start()
-    assert await c.connection == 200
-    await send(s, 'good-post')
+    assert await c.connection == 101
+    await open(s)
+    await send(s, 'post-result')
     await send(s, 'socket-close')
     await c.disconnection
     await s.stop()
+
+
+async def test_handles_unexpected_post(server_and_client):
+    s, c = server_and_client
+    await s.start()
+    assert await c.connection == 101
+    await open(s)
+    await send(s, 'post-unexpected')
+    await send(s, 'socket-close')
+    await c.disconnection
+    await s.stop()
+
+
+async def test_handles_plain_post(server_and_client):
+    s, c = server_and_client
+    await s.start()
+    assert await c.connection == 101
+    await open(s)
+    await send(s, 'post-plain')
+    await send(s, 'socket-close')
+    await c.disconnection
+    await s.stop()
+
+
+async def test_handles_octet_post(server_and_client):
+    s, c = server_and_client
+    await s.start()
+    assert await c.connection == 101
+    await open(s)
+    await send(s, 'post-octet')
+    await send(s, 'socket-close')
+    await c.disconnection
+    await s.stop()
+
+
+async def test_does_not_handle_error_post(caplog, server_and_client):
+    with caplog.at_level(logging.ERROR):
+        s, c = server_and_client
+        await s.start()
+        assert await c.connection == 101
+        await open(s)
+        await send(s, 'post-error')
+        await send(s, 'socket-close')
+        await c.disconnection
+        await s.stop()
+    assert len(caplog.records) == 1
+
+
+async def test_does_not_handle_empty_post(caplog, server_and_client):
+    with caplog.at_level(logging.ERROR):
+        s, c = server_and_client
+        await s.start()
+        assert await c.connection == 101
+        await send(s, 'post-empty')
+        await send(s, 'socket-close')
+        await c.disconnection
+        await s.stop()
+    assert len(caplog.records) == 1

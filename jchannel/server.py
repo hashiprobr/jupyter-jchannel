@@ -371,6 +371,28 @@ class Server(AbstractServer):
 
         await socket.send_str(data)
 
+    async def _call(self, channel, input, reader):
+        name = input.pop('name')
+        args = input.pop('args')
+
+        if not isinstance(name, str):
+            raise TypeError('Name must be a string')
+
+        if not isinstance(args, list):
+            raise TypeError('Args must be a list')
+
+        if reader is not None:
+            args.append(reader)
+
+        output = channel._handle(name, args)
+        if isawaitable(output):
+            output = await output
+
+        if isasyncgen(output):
+            return output, 'null'
+
+        return None, json.dumps(output)
+
     async def _on_shutdown(self, app):
         if app.socket is not None:
             await app.socket.close()
@@ -409,7 +431,7 @@ class Server(AbstractServer):
         try:
             async for message in socket:
                 if message.type != WSMsgType.TEXT:
-                    raise TypeError(f'Unexpected message type {message.type}')
+                    raise TypeError(f'Unexpected socket message type {message.type}')
 
                 body = json.loads(message.data)
 
@@ -438,35 +460,25 @@ class Server(AbstractServer):
                         try:
                             match body_type:
                                 case 'echo':
+                                    stream = None
                                     body_type = 'result'
                                 case 'call':
-                                    name = input.pop('name')
-                                    args = input.pop('args')
-
-                                    if not isinstance(name, str):
-                                        raise TypeError('Name must be a string')
-
-                                    if not isinstance(args, list):
-                                        raise TypeError('Args must be a list')
-
-                                    output = channel._handle(name, args)
-                                    if isawaitable(output):
-                                        output = await output
-
-                                    payload = json.dumps(output)
+                                    stream, payload = await self._call(channel, input, None)
                                     body_type = 'result'
                                 case _:
-                                    payload = f'Unexpected body type {body_type}'
+                                    stream = None
+                                    payload = f'Unexpected socket body type {body_type}'
                                     body_type = 'exception'
                         except Exception as error:
-                            logging.exception('Channel request exception')
+                            logging.exception('Socket request exception')
 
+                            stream = None
                             payload = f'{error.__class__.__name__}: {str(error)}'
                             body_type = 'exception'
 
                         body['payload'] = payload
 
-                        await self._accept(socket, body_type, None, body)
+                        await self._accept(socket, body_type, stream, body)
         except:
             logging.exception('Socket message exception')
 
@@ -489,7 +501,7 @@ class Server(AbstractServer):
 
             stream = self._streams.pop(stream_key)
         except:
-            logging.exception('Get request exception')
+            logging.exception('Get headers exception')
 
             return web.Response(status=400)
 
@@ -517,9 +529,52 @@ class Server(AbstractServer):
             channel_key = body['channel']
             payload = body.pop('payload')
             body_type = body.pop('type')
+
+            reader = request.content
+
+            if body_type == 'result':
+                future = self._registry.retrieve(future_key)
+                future.set_result(reader)
+
+                headers = None
+            else:
+                input = json.loads(payload)
+
+                channel = self._channels[channel_key]
+
+                headers = {}
         except:
-            logging.exception('Post request exception')
+            logging.exception('Post headers exception')
 
             return web.Response(status=400)
 
-        return web.Response()
+        if headers is None:
+            status = 200
+        else:
+            try:
+                match body_type:
+                    case 'call':
+                        stream, payload = await self._call(channel, input, reader)
+                        status = 200
+                    case _:
+                        stream = None
+                        payload = f'Unexpected post body type {body_type}'
+                        status = 501
+            except Exception as error:
+                logging.exception('Post request exception')
+
+                stream = None
+                payload = f'{error.__class__.__name__}: {str(error)}'
+                status = 502
+
+            headers['x-jchannel-payload'] = payload
+
+            if stream is None:
+                stream_key = ''
+            else:
+                stream_key = str(id(stream))
+                self._streams[stream_key] = stream
+
+            headers['x-jchannel-stream'] = stream_key
+
+        return web.Response(status=status, headers=headers)
