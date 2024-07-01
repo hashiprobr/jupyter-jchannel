@@ -279,6 +279,7 @@ class Client:
             loop = asyncio.get_running_loop()
             self.connection = loop.create_future()
             self.disconnection = loop.create_future()
+            self.response_headers = loop.create_future()
 
             asyncio.create_task(self._run())
 
@@ -307,7 +308,7 @@ class Client:
         async with session.post('/', data=generate(), headers=headers) as response:
             assert response.status == status
 
-            self.gotten = await response.content.read()
+            self.response_headers.set_result(response.headers)
 
     async def _post_call(self, session, name, status):
         payload = f'{{"name": "{name}", "args": [1, 2]}}'
@@ -378,8 +379,19 @@ class Client:
 
 
 @pytest.fixture
-def future():
-    return Mock()
+def event():
+    return asyncio.Event()
+
+
+@pytest.fixture
+def future(event):
+    def side_effect(result):
+        event.set()
+
+    f = Mock()
+    f.set_result.side_effect = side_effect
+
+    return f
 
 
 @pytest.fixture
@@ -777,12 +789,16 @@ async def test_does_not_handle_empty_get(caplog, server_and_client):
     assert len(caplog.records) == 1
 
 
-async def test_handles_result_post(server_and_client):
+async def test_handles_result_post(event, future, server_and_client):
     s, c = server_and_client
     await s.start()
     assert await c.connection == 101
     await open(s)
     await send(s, 'post-result')
+    await event.wait()
+    (args, _), = future.set_result.call_args_list
+    reader, = args
+    assert reader is not None
     await send(s, 'socket-close')
     await c.disconnection
     await s.stop()
@@ -794,6 +810,9 @@ async def test_handles_unexpected_post(server_and_client):
     assert await c.connection == 101
     await open(s)
     await send(s, 'post-unexpected')
+    headers = await c.response_headers
+    assert isinstance(headers.getone('x-jchannel-payload'), str)
+    assert headers.getone('x-jchannel-stream') == ''
     await send(s, 'socket-close')
     await c.disconnection
     await s.stop()
@@ -805,6 +824,9 @@ async def test_handles_plain_post(server_and_client):
     assert await c.connection == 101
     await open(s)
     await send(s, 'post-plain')
+    headers = await c.response_headers
+    assert headers.getone('x-jchannel-payload') == '[1, 2]'
+    assert headers.getone('x-jchannel-stream') == ''
     await send(s, 'socket-close')
     await c.disconnection
     await s.stop()
@@ -816,6 +838,10 @@ async def test_handles_octet_post(server_and_client):
     assert await c.connection == 101
     await open(s)
     await send(s, 'post-octet')
+    headers = await c.response_headers
+    assert headers.getone('x-jchannel-payload') == 'null'
+    stream = s._streams[int(headers.getone('x-jchannel-stream'))]
+    assert stream is not None
     await send(s, 'socket-close')
     await c.disconnection
     await s.stop()

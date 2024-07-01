@@ -572,9 +572,9 @@ class Server(AbstractServer):
             if stream is None:
                 stream_key = ''
             else:
-                stream_key = str(id(stream))
+                stream_key = id(stream)
                 self._streams[stream_key] = stream
 
-            headers['x-jchannel-stream'] = stream_key
+            headers['x-jchannel-stream'] = str(stream_key)
 
         return web.Response(status=status, headers=headers)
