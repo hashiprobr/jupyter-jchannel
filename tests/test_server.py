@@ -269,6 +269,7 @@ class Client:
     def __init__(self):
         self.stopped = True
         self.body = None
+        self.status = None
         self.gotten = None
         self.posted = None
 
@@ -294,7 +295,7 @@ class Client:
 
         return json.dumps(body)
 
-    async def _post(self, session, body_type, payload, status):
+    async def _post(self, session, body_type, payload):
         self.posted = bytearray()
 
         async def generate():
@@ -306,14 +307,14 @@ class Client:
         headers = {'x-jchannel-data': self._dumps(body_type, payload)}
 
         async with session.post('/', data=generate(), headers=headers) as response:
-            assert response.status == status
+            self.status = response.status
 
             self.response_headers.set_result(response.headers)
 
-    async def _post_call(self, session, name, status):
+    async def _post_call(self, session, name):
         payload = f'{{"name": "{name}", "args": [1, 2]}}'
 
-        await self._post(session, 'call', payload, status)
+        await self._post(session, 'call', payload)
 
     async def _run(self):
         async with ClientSession('ws://localhost:8889') as session:
@@ -354,22 +355,22 @@ class Client:
                                     async with session.post('/') as response:
                                         assert response.status == 400
                                 case 'post-error':
-                                    await self._post_call(session, 'error', 502)
+                                    await self._post_call(session, 'error')
                                 case 'post-octet':
-                                    await self._post_call(session, 'octet', 200)
+                                    await self._post_call(session, 'octet')
                                 case 'post-plain':
-                                    await self._post_call(session, 'plain', 200)
+                                    await self._post_call(session, 'plain')
                                 case 'post-unexpected':
-                                    await self._post(session, 'type', 'null', 501)
+                                    await self._post(session, 'type', 'null')
                                 case 'post-result':
-                                    await self._post(session, 'result', None, 200)
+                                    await self._post(session, 'result', None)
                                 case _:
                                     await socket.send_str(message.data)
                         else:
                             headers = {'x-jchannel-stream': str(stream_key)}
 
                             async with session.get('/', headers=headers) as response:
-                                assert response.status == 200
+                                self.status = response.status
 
                                 self.gotten = await response.content.read()
             except WSServerHandshakeError as error:
@@ -756,6 +757,7 @@ async def test_handles_get(server_and_client):
     await c.disconnection
     await s.stop()
 
+    assert c.status == 200
     assert c.gotten == array
 
 
@@ -774,6 +776,7 @@ async def test_handles_partial_get(caplog, server_and_client):
         await s.stop()
     assert len(caplog.records) == 1
 
+    assert c.status == 200
     assert c.gotten == b'chunk'
 
 
@@ -795,10 +798,12 @@ async def test_handles_result_post(event, future, server_and_client):
     assert await c.connection == 101
     await open(s)
     await send(s, 'post-result')
+
     await event.wait()
     (args, _), = future.set_result.call_args_list
     reader, = args
     assert reader is not None
+
     await send(s, 'socket-close')
     await c.disconnection
     await s.stop()
@@ -810,9 +815,12 @@ async def test_handles_unexpected_post(server_and_client):
     assert await c.connection == 101
     await open(s)
     await send(s, 'post-unexpected')
+
     headers = await c.response_headers
+    assert c.status == 501
     assert isinstance(headers.getone('x-jchannel-payload'), str)
     assert headers.getone('x-jchannel-stream') == ''
+
     await send(s, 'socket-close')
     await c.disconnection
     await s.stop()
@@ -824,9 +832,12 @@ async def test_handles_plain_post(server_and_client):
     assert await c.connection == 101
     await open(s)
     await send(s, 'post-plain')
+
     headers = await c.response_headers
+    assert c.status == 200
     assert headers.getone('x-jchannel-payload') == '[1, 2]'
     assert headers.getone('x-jchannel-stream') == ''
+
     await send(s, 'socket-close')
     await c.disconnection
     await s.stop()
@@ -838,10 +849,13 @@ async def test_handles_octet_post(server_and_client):
     assert await c.connection == 101
     await open(s)
     await send(s, 'post-octet')
+
     headers = await c.response_headers
+    assert c.status == 200
     assert headers.getone('x-jchannel-payload') == 'null'
     stream = s._streams[int(headers.getone('x-jchannel-stream'))]
     assert stream is not None
+
     await send(s, 'socket-close')
     await c.disconnection
     await s.stop()
@@ -854,6 +868,12 @@ async def test_does_not_handle_error_post(caplog, server_and_client):
         assert await c.connection == 101
         await open(s)
         await send(s, 'post-error')
+
+        headers = await c.response_headers
+        assert c.status == 502
+        assert isinstance(headers.getone('x-jchannel-payload'), str)
+        assert headers.getone('x-jchannel-stream') == ''
+
         await send(s, 'socket-close')
         await c.disconnection
         await s.stop()
