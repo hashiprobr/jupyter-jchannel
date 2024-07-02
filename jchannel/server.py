@@ -396,6 +396,62 @@ class Server(AbstractServer):
 
         return None, json.dumps(output)
 
+    async def _on_message(self, socket, message):
+        try:
+            if message.type != WSMsgType.TEXT:
+                raise TypeError(f'Unexpected socket message type {message.type}')
+
+            body = json.loads(message.data)
+
+            future_key = body['future']
+            channel_key = body['channel']
+            payload = body.pop('payload')
+            body_type = body.pop('type')
+
+            match body_type:
+                case 'closed':
+                    future = self._registry.retrieve(future_key)
+                    future.set_exception(StateError)
+                case 'exception':
+                    future = self._registry.retrieve(future_key)
+                    future.set_exception(JavascriptError(payload))
+                case 'result':
+                    output = json.loads(payload)
+
+                    future = self._registry.retrieve(future_key)
+                    future.set_result(output)
+                case _:
+                    input = json.loads(payload)
+
+                    channel = self._channels[channel_key]
+
+                    try:
+                        match body_type:
+                            case 'echo':
+                                stream = None
+                                body_type = 'result'
+                            case 'call':
+                                stream, payload = await self._call(channel, input, None)
+                                body_type = 'result'
+                            case _:
+                                stream = None
+                                payload = f'Unexpected socket body type {body_type}'
+                                body_type = 'exception'
+                    except Exception as error:
+                        logging.exception('Socket request exception')
+
+                        stream = None
+                        payload = f'{error.__class__.__name__}: {str(error)}'
+                        body_type = 'exception'
+
+                    body['payload'] = payload
+
+                    await self._accept(socket, body_type, stream, body)
+        except:
+            logging.exception('Socket message exception')
+
+            await socket.close()
+
     async def _on_shutdown(self, app):
         if app.socket is not None:
             await app.socket.close()
@@ -432,65 +488,24 @@ class Server(AbstractServer):
 
         await socket.prepare(request)
 
-        request.app.socket = socket
+        tasks = set()
 
+        def done_callback(task):
+            tasks.remove(task)
+
+        request.app.socket = socket
         try:
             async for message in socket:
-                if message.type != WSMsgType.TEXT:
-                    raise TypeError(f'Unexpected socket message type {message.type}')
+                task = asyncio.create_task(self._on_message(socket, message))
+                tasks.add(task)
+                task.add_done_callback(done_callback)
+        finally:
+            request.app.socket = None
 
-                body = json.loads(message.data)
-
-                future_key = body['future']
-                channel_key = body['channel']
-                payload = body.pop('payload')
-                body_type = body.pop('type')
-
-                match body_type:
-                    case 'closed':
-                        future = self._registry.retrieve(future_key)
-                        future.set_exception(StateError)
-                    case 'exception':
-                        future = self._registry.retrieve(future_key)
-                        future.set_exception(JavascriptError(payload))
-                    case 'result':
-                        output = json.loads(payload)
-
-                        future = self._registry.retrieve(future_key)
-                        future.set_result(output)
-                    case _:
-                        input = json.loads(payload)
-
-                        channel = self._channels[channel_key]
-
-                        try:
-                            match body_type:
-                                case 'echo':
-                                    stream = None
-                                    body_type = 'result'
-                                case 'call':
-                                    stream, payload = await self._call(channel, input, None)
-                                    body_type = 'result'
-                                case _:
-                                    stream = None
-                                    payload = f'Unexpected socket body type {body_type}'
-                                    body_type = 'exception'
-                        except Exception as error:
-                            logging.exception('Socket request exception')
-
-                            stream = None
-                            payload = f'{error.__class__.__name__}: {str(error)}'
-                            body_type = 'exception'
-
-                        body['payload'] = payload
-
-                        await self._accept(socket, body_type, stream, body)
-        except:
-            logging.exception('Socket message exception')
-
-            await socket.close()
-
-        request.app.socket = None
+        while tasks:
+            task = tasks.pop()
+            task.remove_done_callback(done_callback)
+            await task
 
         if self._disconnection is not None:
             if __debug__:  # pragma: no cover

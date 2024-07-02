@@ -313,7 +313,7 @@ class Client:
 
         await self._post(session, 'call', payload)
 
-    async def _process(self, session, socket, message):
+    async def _on_message(self, session, socket, message):
         body = json.loads(message.data)
 
         stream_key = body['stream']
@@ -375,17 +375,17 @@ class Client:
 
                     tasks = set()
 
-                    def remove(task):
+                    def done_callback(task):
                         tasks.remove(task)
 
                     async for message in socket:
-                        task = asyncio.create_task(self._process(session, socket, message))
+                        task = asyncio.create_task(self._on_message(session, socket, message))
                         tasks.add(task)
-                        task.add_done_callback(remove)
+                        task.add_done_callback(done_callback)
 
                     while tasks:
                         task = tasks.pop()
-                        task.remove_done_callback(remove)
+                        task.remove_done_callback(done_callback)
                         await task
 
             except WSServerHandshakeError as error:
@@ -538,8 +538,6 @@ async def test_receives_unexpected_message_type(caplog, server_and_client):
         assert await c.connection == 101
         await send(s, 'socket-bytes')
         await c.disconnection
-        with pytest.raises(StateError):
-            await s.stop()
         await s.stop()
     assert len(caplog.records) == 1
 
@@ -551,8 +549,6 @@ async def test_receives_empty_message(caplog, server_and_client):
         assert await c.connection == 101
         await send(s, 'empty-message')
         await c.disconnection
-        with pytest.raises(StateError):
-            await s.stop()
         await s.stop()
     assert len(caplog.records) == 1
 
@@ -564,8 +560,6 @@ async def test_receives_empty_body(caplog, server_and_client):
         assert await c.connection == 101
         await send(s, 'empty-body')
         await c.disconnection
-        with pytest.raises(StateError):
-            await s.stop()
         await s.stop()
     assert len(caplog.records) == 1
 
