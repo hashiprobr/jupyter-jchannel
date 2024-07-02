@@ -5,7 +5,7 @@ import logging
 from enum import Enum, auto
 from inspect import isasyncgen, isawaitable
 from aiohttp import web, WSMsgType
-from jchannel.types import AbstractServer, JavascriptError, StateError
+from jchannel.types import MetaGenerator, AbstractServer, JavascriptError, StateError
 from jchannel.registry import Registry
 from jchannel.channel import Channel
 from jchannel.frontend import frontend
@@ -136,6 +136,7 @@ class Server(AbstractServer):
         if __debug__:  # pragma: no cover
             self._sentinel = DebugSentinel()
 
+        self._dryups = set()
         self._streams = {}
         self._registry = Registry()
         super().__init__()
@@ -281,9 +282,6 @@ class Server(AbstractServer):
             if __debug__:  # pragma: no cover
                 await self._sentinel.set_and_yield(DebugScenario.READ_DISCONNECTION_STATE_AFTER_DISCONNECTION_RESULT_IS_SET)
 
-            self._streams.clear()
-            self._registry.clear()
-
             if restart:
                 loop = asyncio.get_running_loop()
                 self._connection = loop.create_future()
@@ -319,6 +317,24 @@ class Server(AbstractServer):
         if timeout < 0:
             raise ValueError('Timeout must be non-negative')
 
+        socket = await self._propose(timeout)
+
+        payload = json.dumps(input)
+
+        loop = asyncio.get_running_loop()
+        future = loop.create_future()
+
+        body = {
+            'future': self._registry.store(future),
+            'channel': channel_key,
+            'payload': payload,
+        }
+
+        await self._accept(socket, body_type, stream, body)
+
+        return future
+
+    async def _propose(self, timeout):
         if self._connection is None:
             socket = None
         else:
@@ -341,20 +357,7 @@ class Server(AbstractServer):
         if socket.closed:
             raise StateError('Server has disconnected')
 
-        payload = json.dumps(input)
-
-        loop = asyncio.get_running_loop()
-        future = loop.create_future()
-
-        body = {
-            'future': self._registry.store(future),
-            'channel': channel_key,
-            'payload': payload,
-        }
-
-        await self._accept(socket, body_type, stream, body)
-
-        return future
+        return socket
 
     async def _accept(self, socket, body_type, stream, body):
         if stream is None:
@@ -371,7 +374,7 @@ class Server(AbstractServer):
 
         await socket.send_str(data)
 
-    async def _call(self, channel, input, reader):
+    async def _call(self, channel, input, generator):
         name = input.pop('name')
         args = input.pop('args')
 
@@ -381,8 +384,8 @@ class Server(AbstractServer):
         if not isinstance(args, list):
             raise TypeError('Args must be a list')
 
-        if reader is not None:
-            args.append(reader)
+        if generator is not None:
+            args.append(generator)
 
         output = channel._handle(name, args)
         if isawaitable(output):
@@ -396,6 +399,9 @@ class Server(AbstractServer):
     async def _on_shutdown(self, app):
         if app.socket is not None:
             await app.socket.close()
+
+        for dryup in self._dryups:
+            dryup.set()
 
     async def _handle_socket(self, request):
         if __debug__:  # pragma: no cover
@@ -493,6 +499,9 @@ class Server(AbstractServer):
             if not self._disconnection.done():
                 self._disconnection.set_result(True)
 
+        self._streams.clear()
+        self._registry.clear()
+
         return socket
 
     async def _handle_get(self, request):
@@ -530,51 +539,59 @@ class Server(AbstractServer):
             payload = body.pop('payload')
             body_type = body.pop('type')
 
-            reader = request.content
+            is_result = body_type == 'result'
+            generator = MetaGenerator(request.content)
 
-            if body_type == 'result':
+            if is_result:
                 future = self._registry.retrieve(future_key)
-                future.set_result(reader)
-
-                headers = None
+                future.set_result(generator)
             else:
                 input = json.loads(payload)
 
                 channel = self._channels[channel_key]
-
-                headers = {}
         except:
             logging.exception('Post headers exception')
 
             return web.Response(status=400)
 
-        if headers is None:
+        if is_result:
             status = 200
         else:
             try:
                 match body_type:
                     case 'call':
-                        stream, payload = await self._call(channel, input, reader)
-                        status = 200
+                        stream, payload = await self._call(channel, input, generator)
+                        body_type = 'result'
                     case _:
                         stream = None
                         payload = f'Unexpected post body type {body_type}'
-                        status = 501
+                        body_type = 'exception'
             except Exception as error:
                 logging.exception('Post request exception')
 
                 stream = None
                 payload = f'{error.__class__.__name__}: {str(error)}'
-                status = 502
-
-            headers['x-jchannel-payload'] = payload
+                body_type = 'exception'
 
             if stream is None:
-                stream_key = ''
-            else:
-                stream_key = id(stream)
-                self._streams[stream_key] = stream
+                await generator._drain()
 
-            headers['x-jchannel-stream'] = str(stream_key)
+            try:
+                socket = self._connection.result()
 
-        return web.Response(status=status, headers=headers)
+                body['payload'] = payload
+
+                await self._accept(socket, body_type, stream, body)
+
+                status = 200
+            except:
+                logging.exception('Post writing exception')
+
+                status = 404
+
+        if status == 200:
+            self._dryups.add(generator._dryup)
+            await generator._dryup.wait()
+            self._dryups.remove(generator._dryup)
+
+        return web.Response(status=status)

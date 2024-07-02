@@ -248,7 +248,7 @@ class MockChannel:
             raise Exception
         if name == 'octet':
             async def generate():
-                async for chunk in args[-1].iter_any():
+                async for chunk in args[-1].by_limit():
                     yield chunk
             return generate()
         if name == 'plain':
@@ -280,7 +280,6 @@ class Client:
             loop = asyncio.get_running_loop()
             self.connection = loop.create_future()
             self.disconnection = loop.create_future()
-            self.response_headers = loop.create_future()
 
             asyncio.create_task(self._run())
 
@@ -309,12 +308,64 @@ class Client:
         async with session.post('/', data=generate(), headers=headers) as response:
             self.status = response.status
 
-            self.response_headers.set_result(response.headers)
-
     async def _post_call(self, session, name):
         payload = f'{{"name": "{name}", "args": [1, 2]}}'
 
         await self._post(session, 'call', payload)
+
+    async def _process(self, session, socket, message):
+        body = json.loads(message.data)
+
+        stream_key = body['stream']
+
+        if stream_key is not None:
+            headers = {'x-jchannel-stream': str(stream_key)}
+
+            async with session.get('/', headers=headers) as response:
+                self.status = response.status
+
+                self.gotten = await response.content.read()
+
+        body_type = body['type']
+
+        match body_type:
+            case 'get-empty':
+                async with session.get('/') as response:
+                    self.status = response.status
+                await socket.close()
+            case 'post-empty':
+                async with session.post('/') as response:
+                    self.status = response.status
+                await socket.close()
+            case 'post-error':
+                await self._post_call(session, 'error')
+            case 'post-octet':
+                await self._post_call(session, 'octet')
+            case 'post-plain':
+                await self._post_call(session, 'plain')
+            case 'post-unexpected':
+                await self._post(session, 'type', 'null')
+            case 'post-result':
+                await self._post(session, 'result', None)
+            case 'exception' | 'result':
+                self.body = body
+                await socket.close()
+            case 'socket-close':
+                await socket.close()
+            case 'socket-bytes':
+                await socket.send_bytes(b'')
+            case 'empty-message':
+                await socket.send_str('')
+            case 'empty-body':
+                await socket.send_str('{}')
+            case 'mock-closed':
+                await socket.send_str(self._dumps('closed', None))
+            case 'mock-exception':
+                await socket.send_str(self._dumps('exception', 'message'))
+            case 'mock-result':
+                await socket.send_str(self._dumps('result', 'true'))
+            case _:
+                await socket.send_str(message.data)
 
     async def _run(self):
         async with ClientSession('ws://localhost:8889') as session:
@@ -322,57 +373,21 @@ class Client:
                 async with session.ws_connect('/socket') as socket:
                     self.connection.set_result(101)
 
+                    tasks = set()
+
+                    def remove(task):
+                        tasks.remove(task)
+
                     async for message in socket:
-                        body = json.loads(message.data)
+                        task = asyncio.create_task(self._process(session, socket, message))
+                        tasks.add(task)
+                        task.add_done_callback(remove)
 
-                        stream_key = body['stream']
+                    while tasks:
+                        task = tasks.pop()
+                        task.remove_done_callback(remove)
+                        await task
 
-                        if stream_key is None:
-                            body_type = body['type']
-
-                            match body_type:
-                                case 'exception' | 'result':
-                                    self.body = body
-                                    await socket.close()
-                                case 'socket-close':
-                                    await socket.close()
-                                case 'socket-bytes':
-                                    await socket.send_bytes(b'')
-                                case 'empty-message':
-                                    await socket.send_str('')
-                                case 'empty-body':
-                                    await socket.send_str('{}')
-                                case 'mock-closed':
-                                    await socket.send_str(self._dumps('closed', None))
-                                case 'mock-exception':
-                                    await socket.send_str(self._dumps('exception', 'message'))
-                                case 'mock-result':
-                                    await socket.send_str(self._dumps('result', 'true'))
-                                case 'get-empty':
-                                    async with session.get('/') as response:
-                                        assert response.status == 400
-                                case 'post-empty':
-                                    async with session.post('/') as response:
-                                        assert response.status == 400
-                                case 'post-error':
-                                    await self._post_call(session, 'error')
-                                case 'post-octet':
-                                    await self._post_call(session, 'octet')
-                                case 'post-plain':
-                                    await self._post_call(session, 'plain')
-                                case 'post-unexpected':
-                                    await self._post(session, 'type', 'null')
-                                case 'post-result':
-                                    await self._post(session, 'result', None)
-                                case _:
-                                    await socket.send_str(message.data)
-                        else:
-                            headers = {'x-jchannel-stream': str(stream_key)}
-
-                            async with session.get('/', headers=headers) as response:
-                                self.status = response.status
-
-                                self.gotten = await response.content.read()
             except WSServerHandshakeError as error:
                 self.connection.set_result(error.status)
 
@@ -752,10 +767,14 @@ async def test_handles_get(server_and_client):
     s, c = server_and_client
     await s.start()
     assert await c.connection == 101
-    await send(s, 'type', stream=generate())
-    await send(s, 'socket-close')
+    await send(s, 'result', stream=generate())
     await c.disconnection
     await s.stop()
+    assert len(c.body) == 5
+    assert c.body['type'] == 'result'
+    assert c.body['payload'] == 'null'
+    assert c.body['channel'] == CHANNEL_KEY
+    assert c.body['future'] == FUTURE_KEY
 
     assert c.status == 200
     assert c.gotten == array
@@ -770,10 +789,14 @@ async def test_handles_partial_get(caplog, server_and_client):
         s, c = server_and_client
         await s.start()
         assert await c.connection == 101
-        await send(s, 'type', stream=generate())
-        await send(s, 'socket-close')
+        await send(s, 'result', stream=generate())
         await c.disconnection
         await s.stop()
+        assert len(c.body) == 5
+        assert c.body['type'] == 'result'
+        assert c.body['payload'] == 'null'
+        assert c.body['channel'] == CHANNEL_KEY
+        assert c.body['future'] == FUTURE_KEY
     assert len(caplog.records) == 1
 
     assert c.status == 200
@@ -786,23 +809,29 @@ async def test_does_not_handle_empty_get(caplog, server_and_client):
         await s.start()
         assert await c.connection == 101
         await send(s, 'get-empty')
-        await send(s, 'socket-close')
         await c.disconnection
         await s.stop()
     assert len(caplog.records) == 1
+
+    assert c.status == 400
 
 
 async def test_handles_result_post(event, future, server_and_client):
     s, c = server_and_client
     await s.start()
     assert await c.connection == 101
-    await open(s)
     await send(s, 'post-result')
 
     await event.wait()
     (args, _), = future.set_result.call_args_list
-    reader, = args
-    assert reader is not None
+    generator, = args
+
+    array = bytearray()
+
+    async for chunk in generator.by_separator():
+        array.extend(chunk)
+
+    assert array == c.posted
 
     await send(s, 'socket-close')
     await c.disconnection
@@ -815,15 +844,14 @@ async def test_handles_unexpected_post(server_and_client):
     assert await c.connection == 101
     await open(s)
     await send(s, 'post-unexpected')
-
-    headers = await c.response_headers
-    assert c.status == 501
-    assert isinstance(headers.getone('x-jchannel-payload'), str)
-    assert headers.getone('x-jchannel-stream') == ''
-
-    await send(s, 'socket-close')
     await c.disconnection
     await s.stop()
+    assert len(c.body) == 5
+    assert c.body['type'] == 'exception'
+    assert isinstance(c.body['payload'], str)
+    assert c.body['channel'] == CHANNEL_KEY
+    assert c.body['future'] == FUTURE_KEY
+    assert c.body['stream'] is None
 
 
 async def test_handles_plain_post(server_and_client):
@@ -832,15 +860,14 @@ async def test_handles_plain_post(server_and_client):
     assert await c.connection == 101
     await open(s)
     await send(s, 'post-plain')
-
-    headers = await c.response_headers
-    assert c.status == 200
-    assert headers.getone('x-jchannel-payload') == '[1, 2]'
-    assert headers.getone('x-jchannel-stream') == ''
-
-    await send(s, 'socket-close')
     await c.disconnection
     await s.stop()
+    assert len(c.body) == 5
+    assert c.body['type'] == 'result'
+    assert c.body['payload'] == '[1, 2]'
+    assert c.body['channel'] == CHANNEL_KEY
+    assert c.body['future'] == FUTURE_KEY
+    assert c.body['stream'] is None
 
 
 async def test_handles_octet_post(server_and_client):
@@ -849,16 +876,15 @@ async def test_handles_octet_post(server_and_client):
     assert await c.connection == 101
     await open(s)
     await send(s, 'post-octet')
-
-    headers = await c.response_headers
-    assert c.status == 200
-    assert headers.getone('x-jchannel-payload') == 'null'
-    stream = s._streams[int(headers.getone('x-jchannel-stream'))]
-    assert stream is not None
-
-    await send(s, 'socket-close')
     await c.disconnection
     await s.stop()
+    assert c.body['type'] == 'result'
+    assert c.body['payload'] == 'null'
+    assert c.body['channel'] == CHANNEL_KEY
+    assert c.body['future'] == FUTURE_KEY
+
+    assert c.status == 200
+    assert c.gotten == c.posted
 
 
 async def test_does_not_handle_error_post(caplog, server_and_client):
@@ -868,15 +894,14 @@ async def test_does_not_handle_error_post(caplog, server_and_client):
         assert await c.connection == 101
         await open(s)
         await send(s, 'post-error')
-
-        headers = await c.response_headers
-        assert c.status == 502
-        assert isinstance(headers.getone('x-jchannel-payload'), str)
-        assert headers.getone('x-jchannel-stream') == ''
-
-        await send(s, 'socket-close')
         await c.disconnection
         await s.stop()
+        assert len(c.body) == 5
+        assert c.body['type'] == 'exception'
+        assert isinstance(c.body['payload'], str)
+        assert c.body['channel'] == CHANNEL_KEY
+        assert c.body['future'] == FUTURE_KEY
+        assert c.body['stream'] is None
     assert len(caplog.records) == 1
 
 
@@ -886,7 +911,8 @@ async def test_does_not_handle_empty_post(caplog, server_and_client):
         await s.start()
         assert await c.connection == 101
         await send(s, 'post-empty')
-        await send(s, 'socket-close')
         await c.disconnection
         await s.stop()
     assert len(caplog.records) == 1
+
+    assert c.status == 400
