@@ -540,7 +540,7 @@ class Server(AbstractServer):
             async for chunk in stream:
                 await response.write(chunk)
         except:
-            logging.exception('Get reading exception')
+            logging.exception('Get writing exception')
 
         await response.write_eof()
 
@@ -592,20 +592,23 @@ class Server(AbstractServer):
                 body_type = 'exception'
 
             if stream is None:
-                await generator._drain()
+                try:
+                    await generator._drain()
+                except:
+                    logging.exception('Post reading exception')
 
             try:
                 socket = self._connection.result()
+            except:
+                logging.exception('Post sending exception')
 
+                status = 404
+            else:
                 body['payload'] = payload
 
                 await self._accept(socket, body_type, stream, body)
 
                 status = 200
-            except:
-                logging.exception('Post writing exception')
-
-                status = 404
 
         if status == 200:
             await self._until(generator._ended)

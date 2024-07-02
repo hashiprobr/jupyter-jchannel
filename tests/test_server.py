@@ -387,7 +387,6 @@ class Client:
                         task = tasks.pop()
                         task.remove_done_callback(done_callback)
                         await task
-
             except WSServerHandshakeError as error:
                 self.connection.set_result(error.status)
 

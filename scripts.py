@@ -9,9 +9,10 @@ def _open(name):
     while True:
         try:
             process.wait()
-            break
         except KeyboardInterrupt:
             pass
+        else:
+            break
 
 
 def nbclassic():
