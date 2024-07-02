@@ -590,11 +590,12 @@ class Server(AbstractServer):
             body_type = 'exception'
 
         if stream is None:
-            try:
-                async for _ in chunks:
-                    pass
-            except:
-                logging.exception('Post reading exception')
+            if not chunks._ended.is_set():
+                try:
+                    async for _ in chunks:
+                        pass
+                except:
+                    logging.exception('Post reading exception')
 
         try:
             socket = await self._propose(3)
