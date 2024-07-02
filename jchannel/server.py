@@ -376,7 +376,7 @@ class Server(AbstractServer):
 
         await socket.send_str(data)
 
-    async def _call(self, channel, input, generator):
+    async def _call(self, channel, input, chunks):
         name = input.pop('name')
         args = input.pop('args')
 
@@ -386,8 +386,8 @@ class Server(AbstractServer):
         if not isinstance(args, list):
             raise TypeError('Args must be a list')
 
-        if generator is not None:
-            args.append(generator)
+        if chunks is not None:
+            args.append(chunks)
 
         output = channel._handle(name, args)
         if isawaitable(output):
@@ -557,63 +557,59 @@ class Server(AbstractServer):
             payload = body.pop('payload')
             body_type = body.pop('type')
 
-            is_result = body_type == 'result'
-            generator = MetaGenerator(request.content)
+            chunks = MetaGenerator(request.content)
 
-            if is_result:
+            if body_type == 'result':
                 future = self._registry.retrieve(future_key)
-                future.set_result(generator)
-            else:
-                input = json.loads(payload)
+                future.set_result(chunks)
 
-                channel = self._channels[channel_key]
+                return web.Response()
+
+            input = json.loads(payload)
+
+            channel = self._channels[channel_key]
         except:
             logging.exception('Post headers exception')
 
             return web.Response(status=400)
 
-        if is_result:
-            status = 200
-        else:
+        try:
+            match body_type:
+                case 'call':
+                    stream, payload = await self._call(channel, input, chunks)
+                    body_type = 'result'
+                case _:
+                    stream = None
+                    payload = f'Unexpected post body type {body_type}'
+                    body_type = 'exception'
+        except Exception as error:
+            logging.exception('Post request exception')
+
+            stream = None
+            payload = f'{error.__class__.__name__}: {str(error)}'
+            body_type = 'exception'
+
+        if stream is None:
             try:
-                match body_type:
-                    case 'call':
-                        stream, payload = await self._call(channel, input, generator)
-                        body_type = 'result'
-                    case _:
-                        stream = None
-                        payload = f'Unexpected post body type {body_type}'
-                        body_type = 'exception'
-            except Exception as error:
-                logging.exception('Post request exception')
-
-                stream = None
-                payload = f'{error.__class__.__name__}: {str(error)}'
-                body_type = 'exception'
-
-            if stream is None:
-                try:
-                    await generator._drain()
-                except:
-                    logging.exception('Post reading exception')
-
-            try:
-                socket = self._connection.result()
+                async for _ in chunks:
+                    pass
             except:
-                logging.exception('Post sending exception')
+                logging.exception('Post reading exception')
 
-                status = 404
-            else:
-                body['payload'] = payload
+        try:
+            socket = await self._propose(3)
+        except:
+            logging.exception('Post sending exception')
 
-                await self._accept(socket, body_type, stream, body)
+            return web.Response(status=404)
 
-                status = 200
+        body['payload'] = payload
 
-        if status == 200:
-            await self._until(generator._ended)
+        await self._accept(socket, body_type, stream, body)
 
-        return web.Response(status=status)
+        await self._until(chunks._ended)
+
+        return web.Response()
 
     async def _until(self, event):
         self._events.add(event)

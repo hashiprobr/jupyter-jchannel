@@ -28,12 +28,15 @@ class MetaGenerator:
 
         self._ended = asyncio.Event()
 
-    async def _drain(self):
-        try:
-            async for _ in self._reader.iter_any():
-                pass
-        finally:
-            self._ended.set()
+    def __aiter__(self):
+        async def generate():
+            try:
+                async for chunk in self._reader.iter_any():
+                    yield chunk
+            finally:
+                self._ended.set()
+
+        return generate()
 
     async def by_limit(self, limit=8192):
         try:
