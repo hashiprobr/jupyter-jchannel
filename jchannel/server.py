@@ -136,8 +136,10 @@ class Server(AbstractServer):
         if __debug__:  # pragma: no cover
             self._sentinel = DebugSentinel()
 
-        self._dryups = set()
+        self._events = set()
+
         self._streams = {}
+
         self._registry = Registry()
         super().__init__()
 
@@ -456,9 +458,6 @@ class Server(AbstractServer):
         if app.socket is not None:
             await app.socket.close()
 
-        for dryup in self._dryups:
-            dryup.set()
-
     async def _handle_socket(self, request):
         if __debug__:  # pragma: no cover
             await self._sentinel.set_and_yield(DebugScenario.HANDLE_SOCKET_REQUEST_BEFORE_APP_RUNNER_IS_CLEANED)
@@ -514,7 +513,11 @@ class Server(AbstractServer):
             if not self._disconnection.done():
                 self._disconnection.set_result(True)
 
+        for event in self._events:
+            event.set()
+
         self._streams.clear()
+
         self._registry.clear()
 
         return socket
@@ -605,8 +608,11 @@ class Server(AbstractServer):
                 status = 404
 
         if status == 200:
-            self._dryups.add(generator._dryup)
-            await generator._dryup.wait()
-            self._dryups.remove(generator._dryup)
+            await self._until(generator._ended)
 
         return web.Response(status=status)
+
+    async def _until(self, event):
+        self._events.add(event)
+        await event.wait()
+        self._events.remove(event)
