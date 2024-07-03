@@ -275,7 +275,7 @@ class Client:
         self.stopped = True
         self.body = None
         self.status = None
-        self.gotten = None
+        self.gotten = bytearray()
         self.posted = bytearray()
 
     def start(self):
@@ -328,10 +328,13 @@ class Client:
         if stream_key is not None:
             headers = {'x-jchannel-stream': str(stream_key)}
 
-            async with session.get('/', headers=headers) as response:
-                self.status = response.status
+            if self.gotten is not None:
+                async with session.get('/', headers=headers) as response:
+                    self.status = response.status
 
-                self.gotten = await response.content.read()
+                    content = await response.content.read()
+
+                    self.gotten.extend(content)
 
         body_type = body['type']
 
@@ -917,6 +920,17 @@ async def test_handles_octet_post(server_and_client):
 
     assert c.status == 200
     assert c.gotten == c.posted
+
+
+async def test_handles_partial_octet_post(server_and_client):
+    s, c = server_and_client
+    c.gotten = None
+    await s.start()
+    assert await c.connection == 101
+    await open(s)
+    await send(s, 'post-octet')
+    await c.disconnection
+    await s.stop()
 
 
 async def test_does_not_handle_octet_post(caplog, server_and_client):
