@@ -258,7 +258,7 @@ class MockChannel:
         return args
 
     async def _drain(self, args):
-        async for _ in args[-1]:
+        async for _ in args[-1].by_separator():
             pass
         return args[:-1]
 
@@ -840,7 +840,7 @@ async def test_handles_result_post(event, future, server_and_client):
 
     array = bytearray()
 
-    async for chunk in generator.by_separator():
+    async for chunk in generator:
         array.extend(chunk)
 
     assert array == c.posted
