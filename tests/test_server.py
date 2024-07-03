@@ -919,6 +919,21 @@ async def test_handles_octet_post(server_and_client):
     assert c.gotten == c.posted
 
 
+async def test_does_not_handle_octet_post(caplog, server_and_client):
+    with caplog.at_level(logging.ERROR):
+        s, c = server_and_client
+        await s.start()
+        assert await c.connection == 101
+        await open(s)
+        await send(s, 'post-octet')
+        await send(s, 'socket-close')
+        await c.disconnection
+        await s.stop()
+    assert len(caplog.records) == 1
+
+    assert c.status == 404
+
+
 async def test_does_not_handle_error_post(caplog, server_and_client):
     with caplog.at_level(logging.ERROR):
         s, c = server_and_client
