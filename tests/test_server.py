@@ -252,10 +252,15 @@ class MockChannel:
                     yield chunk
             return generate()
         if name == 'plain':
-            return args[:-1]
+            return self._drain(args)
         if name == 'async':
             return self._resolve(args)
         return args
+
+    async def _drain(self, args):
+        async for _ in args[-1]:
+            pass
+        return args[:-1]
 
     async def _resolve(self, args):
         return args
