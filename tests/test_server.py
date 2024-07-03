@@ -276,7 +276,7 @@ class Client:
         self.body = None
         self.status = None
         self.gotten = None
-        self.posted = None
+        self.posted = bytearray()
 
     def start(self):
         if self.stopped:
@@ -299,24 +299,26 @@ class Client:
 
         return json.dumps(body)
 
-    async def _post(self, session, body_type, payload):
-        self.posted = bytearray()
+    async def _generate(self):
+        for i in range(CONTENT_LENGTH):
+            b = bytes(str(i), CONTENT_ENCODING)
+            self.posted.extend(b)
+            yield b
 
-        async def generate():
-            for i in range(CONTENT_LENGTH):
-                b = bytes(str(i), CONTENT_ENCODING)
-                self.posted.extend(b)
-                yield b
+    async def _generate_partial(self):
+        yield b'chunk'
+        raise Exception
 
+    async def _post(self, session, body_type, payload, data):
         headers = {'x-jchannel-data': self._dumps(body_type, payload)}
 
-        async with session.post('/', data=generate(), headers=headers) as response:
+        async with session.post('/', data=data, headers=headers) as response:
             self.status = response.status
 
     async def _post_call(self, session, name):
         payload = f'{{"name": "{name}", "args": [1, 2]}}'
 
-        await self._post(session, 'call', payload)
+        await self._post(session, 'call', payload, self._generate())
 
     async def _on_message(self, session, socket, message):
         body = json.loads(message.data)
@@ -348,12 +350,12 @@ class Client:
                 await self._post_call(session, 'octet')
             case 'post-plain':
                 await self._post_call(session, 'plain')
-            case 'post-pipe':
-                await self._post(session, 'pipe', 'null')
             case 'post-unexpected':
-                await self._post(session, 'type', 'null')
+                await self._post(session, 'type', 'null', self._generate_partial())
+            case 'post-pipe':
+                await self._post(session, 'pipe', 'null', self._generate())
             case 'post-result':
-                await self._post(session, 'result', None)
+                await self._post(session, 'result', None, self._generate())
             case 'exception' | 'result':
                 self.body = body
                 await socket.close()
@@ -793,15 +795,15 @@ async def test_handles_get(server_and_client):
 
 
 async def test_handles_partial_get(caplog, server_and_client):
-    async def generate():
+    async def generate_partial():
         yield b'chunk'
-        yield True
+        raise Exception
 
     with caplog.at_level(logging.ERROR):
         s, c = server_and_client
         await s.start()
         assert await c.connection == 101
-        await send(s, 'result', stream=generate())
+        await send(s, 'result', stream=generate_partial())
         await c.disconnection
         await s.stop()
         assert len(c.body) == 5
@@ -850,22 +852,6 @@ async def test_handles_result_post(event, future, server_and_client):
     await s.stop()
 
 
-async def test_handles_unexpected_post(server_and_client):
-    s, c = server_and_client
-    await s.start()
-    assert await c.connection == 101
-    await open(s)
-    await send(s, 'post-unexpected')
-    await c.disconnection
-    await s.stop()
-    assert len(c.body) == 5
-    assert c.body['type'] == 'exception'
-    assert isinstance(c.body['payload'], str)
-    assert c.body['channel'] == CHANNEL_KEY
-    assert c.body['future'] == FUTURE_KEY
-    assert c.body['stream'] is None
-
-
 async def test_handles_pipe_post(server_and_client):
     s, c = server_and_client
     await s.start()
@@ -882,6 +868,22 @@ async def test_handles_pipe_post(server_and_client):
 
     assert c.status == 200
     assert c.gotten == c.posted
+
+
+async def test_handles_unexpected_post(server_and_client):
+    s, c = server_and_client
+    await s.start()
+    assert await c.connection == 101
+    await open(s)
+    await send(s, 'post-unexpected')
+    await c.disconnection
+    await s.stop()
+    assert len(c.body) == 5
+    assert c.body['type'] == 'exception'
+    assert isinstance(c.body['payload'], str)
+    assert c.body['channel'] == CHANNEL_KEY
+    assert c.body['future'] == FUTURE_KEY
+    assert c.body['stream'] is None
 
 
 async def test_handles_plain_post(server_and_client):
