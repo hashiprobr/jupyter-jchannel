@@ -18,6 +18,7 @@ if __debug__:  # pragma: no cover
         READ_SESSION_REFERENCES_AFTER_SESSION_REFERENCES_ARE_NONE = auto()
         READ_CONNECTION_RESULT_BEFORE_SESSION_REFERENCES_ARE_NONE = auto()
         READ_DISCONNECTION_STATE_AFTER_DISCONNECTION_RESULT_IS_SET = auto()
+        READ_DISCONNECTION_RESULT_BEFORE_SESSION_REFERENCES_ARE_NEW = auto()
 
     class DebugEvent(asyncio.Event):
         def __init__(self, scenario):
@@ -270,7 +271,12 @@ class Server(AbstractServer):
 
             if self._disconnection is not None:
                 if self._disconnection.done():
-                    if self._disconnection.result():
+                    restart = self._disconnection.result()
+
+                    if __debug__:  # pragma: no cover
+                        await self._sentinel.set_and_yield(DebugScenario.READ_DISCONNECTION_RESULT_BEFORE_SESSION_REFERENCES_ARE_NEW)
+
+                    if restart:
                         raise StateError('Server is restarting')
                 else:
                     self._disconnection.set_result(False)
@@ -285,6 +291,9 @@ class Server(AbstractServer):
                 await self._sentinel.set_and_yield(DebugScenario.READ_DISCONNECTION_STATE_AFTER_DISCONNECTION_RESULT_IS_SET)
 
             if restart:
+                if __debug__:  # pragma: no cover
+                    await self._sentinel.wait_on_count(DebugScenario.READ_DISCONNECTION_RESULT_BEFORE_SESSION_REFERENCES_ARE_NEW, 1)
+
                 loop = asyncio.get_running_loop()
                 self._connection = loop.create_future()
                 self._disconnection = loop.create_future()

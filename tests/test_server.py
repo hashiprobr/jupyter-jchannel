@@ -455,6 +455,18 @@ async def test_connects_and_stops_twice(server_and_client):
     assert s._registry.clear.call_count == 1
 
 
+async def test_connects_disconnects_does_not_stop_and_stops(server_and_client):
+    s, c = server_and_client
+    await s._start(DebugScenario.READ_DISCONNECTION_RESULT_BEFORE_SESSION_REFERENCES_ARE_NEW)
+    assert await c.connection == 101
+    await send(s, 'socket-close')
+    await c.disconnection
+    with pytest.raises(StateError):
+        await s.stop()
+    s.stop()
+    assert s._registry.clear.call_count == 1
+
+
 async def test_connects_disconnects_does_not_send_and_stops(server_and_client):
     s, c = server_and_client
     await s._start(DebugScenario.READ_DISCONNECTION_STATE_AFTER_DISCONNECTION_RESULT_IS_SET)
