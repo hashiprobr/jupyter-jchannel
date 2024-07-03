@@ -343,6 +343,8 @@ class Client:
                 await self._post_call(session, 'octet')
             case 'post-plain':
                 await self._post_call(session, 'plain')
+            case 'post-pipe':
+                await self._post(session, 'pipe', 'null')
             case 'post-unexpected':
                 await self._post(session, 'type', 'null')
             case 'post-result':
@@ -845,6 +847,24 @@ async def test_handles_unexpected_post(server_and_client):
     assert c.body['channel'] == CHANNEL_KEY
     assert c.body['future'] == FUTURE_KEY
     assert c.body['stream'] is None
+
+
+async def test_handles_pipe_post(server_and_client):
+    s, c = server_and_client
+    await s.start()
+    assert await c.connection == 101
+    await open(s)
+    await send(s, 'post-pipe')
+    await c.disconnection
+    await s.stop()
+    assert len(c.body) == 5
+    assert c.body['type'] == 'result'
+    assert c.body['payload'] == 'null'
+    assert c.body['channel'] == CHANNEL_KEY
+    assert c.body['future'] == FUTURE_KEY
+
+    assert c.status == 200
+    assert c.gotten == c.posted
 
 
 async def test_handles_plain_post(server_and_client):

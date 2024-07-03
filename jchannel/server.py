@@ -578,6 +578,10 @@ class Server(AbstractServer):
                 case 'call':
                     stream, payload = await self._call(channel, input, chunks)
                     body_type = 'result'
+                case 'pipe':
+                    stream = aiter(chunks)
+                    payload = 'null'
+                    body_type = 'result'
                 case _:
                     stream = None
                     payload = f'Unexpected post body type {body_type}'
