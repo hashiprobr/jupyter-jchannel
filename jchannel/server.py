@@ -5,7 +5,7 @@ import logging
 from enum import Enum, auto
 from inspect import isasyncgen, isawaitable
 from aiohttp import web, WSMsgType
-from jchannel.types import MetaGenerator, AbstractServer, JavascriptError, StateError
+from jchannel.types import MetaGenerator, AbstractServer, FrontendError, StateError
 from jchannel.registry import Registry
 from jchannel.channel import Channel
 from jchannel.frontend import frontend
@@ -416,7 +416,7 @@ class Server(AbstractServer):
                     future.set_exception(StateError)
                 case 'exception':
                     future = self._registry.retrieve(future_key)
-                    future.set_exception(JavascriptError(payload))
+                    future.set_exception(FrontendError(payload))
                 case 'result':
                     output = json.loads(payload)
 

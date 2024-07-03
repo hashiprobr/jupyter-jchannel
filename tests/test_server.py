@@ -5,7 +5,7 @@ import pytest
 
 from unittest.mock import Mock
 from aiohttp import ClientSession, WSServerHandshakeError
-from jchannel.types import JavascriptError, StateError
+from jchannel.types import FrontendError, StateError
 from jchannel.server import Server, DebugScenario
 
 pytestmark = pytest.mark.asyncio(scope='module')
@@ -584,7 +584,7 @@ async def test_receives_exception(future, server_and_client):
     await s.stop()
     (args, _), = future.set_exception.call_args_list
     error, = args
-    assert isinstance(error, JavascriptError)
+    assert isinstance(error, FrontendError)
     assert error.args == ('message',)
 
 

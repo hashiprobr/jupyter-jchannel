@@ -4,11 +4,22 @@ from abc import ABC, abstractmethod
 
 
 class StateError(Exception):
-    pass
+    '''
+    Indicates that an operation could not be performed because the performer is
+    in an invalid state.
+
+    For example, a message could not be sent because the server is not
+    connected.
+    '''
 
 
-class JavascriptError(Exception):
-    pass
+class FrontendError(Exception):
+    '''
+    Indicates that an operation could not be performed in the frontend.
+
+    Contains a simple message or the string representation of a frontend
+    exception.
+    '''
 
 
 class AbstractServer(ABC):
@@ -23,6 +34,10 @@ class AbstractServer(ABC):
 
 
 class MetaGenerator:
+    '''
+    Provides generators to read a frontend stream.
+    '''
+
     def __init__(self, reader):
         self._reader = reader
 
@@ -39,6 +54,15 @@ class MetaGenerator:
         return generate()
 
     async def by_limit(self, limit=8192):
+        '''
+        Provides chunks with maximum size limit.
+
+        :param limit: The size limit.
+        :type limit: int
+
+        :return: An async generator of bytes.
+        :rtype: async_generator[bytes]
+        '''
         try:
             async for chunk in self._reader.iter_chunked(limit):
                 yield chunk
@@ -46,6 +70,15 @@ class MetaGenerator:
             self._ended.set()
 
     async def by_separator(self, separator=b'\n'):
+        '''
+        Provides chunks according to a separator.
+
+        :param separator: The split separator.
+        :type separator: bytes
+
+        :return: An async generator of bytes.
+        :rtype: async_generator[bytes]
+        '''
         try:
             while True:
                 chunk = await self._reader.readuntil(separator)

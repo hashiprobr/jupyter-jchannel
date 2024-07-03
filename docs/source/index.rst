@@ -10,3 +10,4 @@ This is the public API reference for `jupyter-jchannel
    jchannel
    jchannel.server
    jchannel.channel
+   jchannel.types
