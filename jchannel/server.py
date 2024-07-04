@@ -486,7 +486,7 @@ class Server(AbstractServer):
             await self._sentinel.set_and_yield(DebugScenario.HANDLE_SOCKET_REQUEST_BEFORE_APP_RUNNER_IS_CLEANED)
 
         if self._connection is None:
-            return web.Response(status=404)
+            return web.Response(status=503)
 
         if self._connection.done():
             socket = self._connection.result()
@@ -495,7 +495,7 @@ class Server(AbstractServer):
                 await self._sentinel.set_and_yield(DebugScenario.READ_CONNECTION_RESULT_BEFORE_SESSION_REFERENCES_ARE_NONE)
 
             if socket is None:
-                status = 404
+                status = 503
             else:
                 status = 409
 
@@ -630,7 +630,7 @@ class Server(AbstractServer):
             except:
                 logging.exception('Post sending exception')
 
-                return web.Response(status=404)
+                return web.Response(status=503)
 
             body['payload'] = payload
 

@@ -506,7 +506,7 @@ async def test_stops_and_does_not_connect(server_and_client):
     s, c = server_and_client
     await s._start(DebugScenario.HANDLE_SOCKET_REQUEST_BEFORE_APP_RUNNER_IS_CLEANED)
     await s.stop()
-    assert await c.connection == 404
+    assert await c.connection == 503
     await c.disconnection
 
 
@@ -514,7 +514,7 @@ async def test_does_not_connect_and_stops(server_and_client):
     s, c = server_and_client
     await s._start(DebugScenario.READ_CONNECTION_RESULT_BEFORE_SESSION_REFERENCES_ARE_NONE)
     task = s.stop()
-    assert await c.connection == 404
+    assert await c.connection == 503
     await task
     await c.disconnection
 
@@ -968,7 +968,7 @@ async def test_does_not_handle_octet_post(caplog, server_and_client):
         await s.stop()
     assert len(caplog.records) == 1
 
-    assert c.status == 404
+    assert c.status == 503
 
 
 async def test_does_not_handle_error_post(caplog, server_and_client):
