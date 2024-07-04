@@ -27,6 +27,7 @@ class Channel:
 
         self._server = server
         self._code = code
+        self._context_timeout = 3
         self._handler = None
         self._use = False
 
@@ -118,6 +119,20 @@ class Channel:
         return asyncio.create_task(self._call(name, args, timeout))
 
     @property
+    def context_timeout(self):
+        '''
+        The context request timeout in seconds.
+
+        When this channel is used as a context manager, this timeout is passed
+        to the open and close requests.
+        '''
+        return self._context_timeout
+
+    @context_timeout.setter
+    def context_timeout(self, value):
+        self._context_timeout = value
+
+    @property
     def handler(self):
         '''
         The object that handles calls from the client.
@@ -126,8 +141,6 @@ class Channel:
 
     @handler.setter
     def handler(self, value):
-        if value is None:
-            raise ValueError('Handler cannot be None')
         self._handler = value
 
     def _handle(self, name, args):
@@ -142,11 +155,11 @@ class Channel:
         return method(*args)
 
     async def __aenter__(self):
-        await self._open(3)
+        await self._open(self._context_timeout)
         return self
 
     async def __aexit__(self, exc_type, exc_value, traceback):
-        await self._close(3)
+        await self._close(self._context_timeout)
         return False
 
     async def _open(self, timeout):

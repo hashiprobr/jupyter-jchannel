@@ -48,12 +48,13 @@ def c(server):
 
 async def test_instantiates(server, c):
     assert server._channels[id(c)] is c
+    assert c.context_timeout == 3
     assert c.handler is None
 
 
-async def test_does_not_set_none_handler(c):
-    with pytest.raises(ValueError):
-        c.handler = None
+async def test_sets_context_timeout(c):
+    c.context_timeout = 0
+    assert c.context_timeout == 0
 
 
 async def test_handles_with_result(c):

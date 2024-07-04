@@ -325,16 +325,15 @@ class Client:
 
         stream_key = body['stream']
 
-        if stream_key is not None:
+        if stream_key is not None and self.gotten is not None:
             headers = {'x-jchannel-stream': str(stream_key)}
 
-            if self.gotten is not None:
-                async with session.get('/', headers=headers) as response:
-                    self.status = response.status
+            async with session.get('/', headers=headers) as response:
+                self.status = response.status
 
-                    content = await response.content.read()
+                content = await response.content.read()
 
-                    self.gotten.extend(content)
+                self.gotten.extend(content)
 
         body_type = body['type']
 
@@ -396,9 +395,9 @@ class Client:
                         task.add_done_callback(done_callback)
 
                     while tasks:
-                        task = tasks.pop()
-                        task.remove_done_callback(done_callback)
+                        task = next(iter(tasks))
                         await task
+                        task.remove_done_callback(done_callback)
             except WSServerHandshakeError as error:
                 self.connection.set_result(error.status)
 
@@ -473,7 +472,7 @@ async def test_connects_disconnects_does_not_stop_and_stops(server_and_client):
     await c.disconnection
     with pytest.raises(StateError):
         await s.stop()
-    s.stop()
+    await s.stop()
     assert s._registry.clear.call_count == 1
 
 

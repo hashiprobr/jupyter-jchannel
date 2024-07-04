@@ -511,9 +511,9 @@ class Server(AbstractServer):
             request.app.socket = None
 
         while tasks:
-            task = tasks.pop()
-            task.remove_done_callback(done_callback)
+            task = next(iter(tasks))
             await task
+            task.remove_done_callback(done_callback)
 
         if self._disconnection is not None:
             if __debug__:  # pragma: no cover

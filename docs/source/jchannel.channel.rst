@@ -6,6 +6,7 @@
 
 .. autoclass:: Channel
 
+   .. autoproperty:: context_timeout
    .. autoproperty:: handler
    .. automethod:: destroy
    .. automethod:: open
