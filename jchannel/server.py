@@ -393,7 +393,6 @@ class Server(AbstractServer):
             self._streams[stream_key] = stream
 
         body['stream'] = stream_key
-
         body['type'] = body_type
 
         data = json.dumps(body)
@@ -586,55 +585,56 @@ class Server(AbstractServer):
             if body_type == 'result':
                 future = self._registry.retrieve(future_key)
                 future.set_result(chunks)
+            else:
+                future = None
 
-                return web.Response()
+                input = json.loads(payload)
 
-            input = json.loads(payload)
-
-            channel = self._channels[channel_key]
+                channel = self._channels[channel_key]
         except:
             logging.exception('Post headers exception')
 
             return web.Response(status=400)
 
-        try:
-            match body_type:
-                case 'call':
-                    stream, payload = await self._call(channel, input, chunks)
-                    body_type = 'result'
-                case 'pipe':
-                    stream = aiter(chunks)
-                    payload = 'null'
-                    body_type = 'result'
-                case _:
-                    stream = None
-                    payload = f'Unexpected post body type {body_type}'
-                    body_type = 'exception'
-        except Exception as error:
-            logging.exception('Post request exception')
+        if future is None:
+            try:
+                match body_type:
+                    case 'call':
+                        stream, payload = await self._call(channel, input, chunks)
+                        body_type = 'result'
+                    case 'pipe':
+                        stream = aiter(chunks)
+                        payload = 'null'
+                        body_type = 'result'
+                    case _:
+                        stream = None
+                        payload = f'Unexpected post body type {body_type}'
+                        body_type = 'exception'
+            except Exception as error:
+                logging.exception('Post request exception')
 
-            stream = None
-            payload = f'{error.__class__.__name__}: {str(error)}'
-            body_type = 'exception'
+                stream = None
+                payload = f'{error.__class__.__name__}: {str(error)}'
+                body_type = 'exception'
 
-        if stream is None:
-            if not chunks._ended.is_set():
-                try:
-                    async for _ in chunks:
-                        pass
-                except:
-                    logging.exception('Post reading exception')
+            if stream is None:
+                if not chunks._ended.is_set():
+                    try:
+                        async for _ in chunks:
+                            pass
+                    except:
+                        logging.exception('Post reading exception')
 
-        try:
-            socket = await self._propose(self._response_timeout)
-        except:
-            logging.exception('Post sending exception')
+            try:
+                socket = await self._propose(self._response_timeout)
+            except:
+                logging.exception('Post sending exception')
 
-            return web.Response(status=404)
+                return web.Response(status=404)
 
-        body['payload'] = payload
+            body['payload'] = payload
 
-        await self._accept(socket, body_type, stream, body)
+            await self._accept(socket, body_type, stream, body)
 
         await self._until(chunks._ended)
 

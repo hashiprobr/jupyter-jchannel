@@ -4,7 +4,7 @@ import logging
 import pytest
 
 from unittest.mock import Mock
-from aiohttp import ClientSession, WSServerHandshakeError
+from aiohttp import ClientSession, ClientConnectionError, WSServerHandshakeError
 from jchannel.types import FrontendError, StateError
 from jchannel.server import Server, DebugScenario
 
@@ -253,12 +253,12 @@ class MockChannel:
                     yield chunk
             return generate()
         if name == 'plain':
-            return self._drain(args)
+            return self._consume(args)
         if name == 'async':
             return self._resolve(args)
         return args
 
-    async def _drain(self, args):
+    async def _consume(self, args):
         async for _ in args[-1].by_separator():
             pass
         return args[:-1]
@@ -313,8 +313,11 @@ class Client:
     async def _post(self, session, body_type, payload, data):
         headers = {'x-jchannel-data': self._dumps(body_type, payload)}
 
-        async with session.post('/', data=data, headers=headers) as response:
-            self.status = response.status
+        try:
+            async with session.post('/', data=data, headers=headers) as response:
+                self.status = response.status
+        except ClientConnectionError:
+            self.status = 0
 
     async def _post_call(self, session, name):
         payload = f'{{"name": "{name}", "args": [1, 2]}}'
@@ -325,8 +328,9 @@ class Client:
         body = json.loads(message.data)
 
         stream_key = body['stream']
+        body_type = body['type']
 
-        if stream_key is not None and self.gotten is not None:
+        if stream_key is not None and not self.gotten:
             headers = {'x-jchannel-stream': str(stream_key)}
 
             async with session.get('/', headers=headers) as response:
@@ -335,8 +339,6 @@ class Client:
                 content = await response.content.read()
 
                 self.gotten.extend(content)
-
-        body_type = body['type']
 
         match body_type:
             case 'get-empty':
@@ -773,12 +775,12 @@ async def test_receives_unexpected_body_type(server_and_client):
 
 
 async def test_handles_get(server_and_client):
-    array = bytearray()
+    content = bytearray()
 
     async def generate():
         for i in range(CONTENT_LENGTH):
             b = bytes(str(i), CONTENT_ENCODING)
-            array.extend(b)
+            content.extend(b)
             yield b
 
     s, c = server_and_client
@@ -789,12 +791,13 @@ async def test_handles_get(server_and_client):
     await s.stop()
     assert len(c.body) == 5
     assert c.body['type'] == 'result'
+    assert c.body['stream'] is not None
     assert c.body['payload'] == 'null'
     assert c.body['channel'] == CHANNEL_KEY
     assert c.body['future'] == FUTURE_KEY
 
     assert c.status == 200
-    assert c.gotten == array
+    assert c.gotten == content
 
 
 async def test_handles_partial_get(caplog, server_and_client):
@@ -811,6 +814,7 @@ async def test_handles_partial_get(caplog, server_and_client):
         await s.stop()
         assert len(c.body) == 5
         assert c.body['type'] == 'result'
+        assert c.body['stream'] is not None
         assert c.body['payload'] == 'null'
         assert c.body['channel'] == CHANNEL_KEY
         assert c.body['future'] == FUTURE_KEY
@@ -834,25 +838,27 @@ async def test_does_not_handle_empty_get(caplog, server_and_client):
 
 
 async def test_handles_result_post(event, future, server_and_client):
+    content = bytearray()
+
     s, c = server_and_client
     await s.start()
     assert await c.connection == 101
     await send(s, 'post-result')
 
     await event.wait()
+
     (args, _), = future.set_result.call_args_list
-    generator, = args
+    chunks, = args
 
-    array = bytearray()
-
-    async for chunk in generator:
-        array.extend(chunk)
-
-    assert array == c.posted
+    async for chunk in chunks:
+        content.extend(chunk)
 
     await send(s, 'socket-close')
     await c.disconnection
     await s.stop()
+
+    assert c.status == 200
+    assert content == c.posted
 
 
 async def test_handles_pipe_post(server_and_client):
@@ -865,6 +871,7 @@ async def test_handles_pipe_post(server_and_client):
     await s.stop()
     assert len(c.body) == 5
     assert c.body['type'] == 'result'
+    assert c.body['stream'] is not None
     assert c.body['payload'] == 'null'
     assert c.body['channel'] == CHANNEL_KEY
     assert c.body['future'] == FUTURE_KEY
@@ -883,10 +890,12 @@ async def test_handles_unexpected_post(server_and_client):
     await s.stop()
     assert len(c.body) == 5
     assert c.body['type'] == 'exception'
+    assert c.body['stream'] is None
     assert isinstance(c.body['payload'], str)
     assert c.body['channel'] == CHANNEL_KEY
     assert c.body['future'] == FUTURE_KEY
-    assert c.body['stream'] is None
+
+    assert c.status == 0
 
 
 async def test_handles_plain_post(server_and_client):
@@ -899,10 +908,12 @@ async def test_handles_plain_post(server_and_client):
     await s.stop()
     assert len(c.body) == 5
     assert c.body['type'] == 'result'
+    assert c.body['stream'] is None
     assert c.body['payload'] == '[1, 2]'
     assert c.body['channel'] == CHANNEL_KEY
     assert c.body['future'] == FUTURE_KEY
-    assert c.body['stream'] is None
+
+    assert c.status == 200
 
 
 async def test_handles_octet_post(server_and_client):
@@ -913,7 +924,9 @@ async def test_handles_octet_post(server_and_client):
     await send(s, 'post-octet')
     await c.disconnection
     await s.stop()
+    assert len(c.body) == 5
     assert c.body['type'] == 'result'
+    assert c.body['stream'] is not None
     assert c.body['payload'] == 'null'
     assert c.body['channel'] == CHANNEL_KEY
     assert c.body['future'] == FUTURE_KEY
@@ -924,13 +937,22 @@ async def test_handles_octet_post(server_and_client):
 
 async def test_handles_partial_octet_post(server_and_client):
     s, c = server_and_client
-    c.gotten = None
+    c.gotten.extend(b'chunk')
     await s.start()
     assert await c.connection == 101
     await open(s)
     await send(s, 'post-octet')
     await c.disconnection
     await s.stop()
+    assert len(c.body) == 5
+    assert c.body['type'] == 'result'
+    assert c.body['stream'] is not None
+    assert c.body['payload'] == 'null'
+    assert c.body['channel'] == CHANNEL_KEY
+    assert c.body['future'] == FUTURE_KEY
+
+    assert c.status == 200
+    assert c.gotten == b'chunk'
 
 
 async def test_does_not_handle_octet_post(caplog, server_and_client):
@@ -960,11 +982,13 @@ async def test_does_not_handle_error_post(caplog, server_and_client):
         await s.stop()
         assert len(c.body) == 5
         assert c.body['type'] == 'exception'
+        assert c.body['stream'] is None
         assert isinstance(c.body['payload'], str)
         assert c.body['channel'] == CHANNEL_KEY
         assert c.body['future'] == FUTURE_KEY
-        assert c.body['stream'] is None
     assert len(caplog.records) == 1
+
+    assert c.status == 200
 
 
 async def test_does_not_handle_empty_post(caplog, server_and_client):
