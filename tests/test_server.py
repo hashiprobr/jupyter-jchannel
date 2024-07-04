@@ -187,6 +187,7 @@ async def send(s, body_type, input=None, stream=None, timeout=3):
 
 
 async def test_stops_client_and_stops(s):
+    assert s.response_timeout == 3
     s.stop_client()
     await s.stop()
 
@@ -935,6 +936,7 @@ async def test_handles_partial_octet_post(server_and_client):
 async def test_does_not_handle_octet_post(caplog, server_and_client):
     with caplog.at_level(logging.ERROR):
         s, c = server_and_client
+        s.response_timeout = 0
         await s.start()
         assert await c.connection == 101
         await open(s)
