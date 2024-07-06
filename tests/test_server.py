@@ -310,7 +310,17 @@ class Client:
         yield b'chunk'
         raise Exception
 
-    async def _post(self, session, body_type, payload, data):
+    async def _do_get(self, session, stream_key):
+        headers = {'x-jchannel-stream': str(stream_key)}
+
+        async with session.get('/', headers=headers) as response:
+            self.status = response.status
+
+            content = await response.content.read()
+
+            self.gotten.extend(content)
+
+    async def _do_post(self, session, body_type, payload, data):
         headers = {'x-jchannel-data': self._dumps(body_type, payload)}
 
         try:
@@ -319,26 +329,20 @@ class Client:
         except ClientConnectionError:
             self.status = 0
 
-    async def _post_call(self, session, name):
+    async def _do_call(self, session, name):
         payload = f'{{"name": "{name}", "args": [1, 2]}}'
 
-        await self._post(session, 'call', payload, self._generate())
+        await self._do_post(session, 'call', payload, self._generate())
 
     async def _on_message(self, session, socket, message):
         body = json.loads(message.data)
 
         stream_key = body['stream']
+
         body_type = body['type']
 
         if stream_key is not None and not self.gotten:
-            headers = {'x-jchannel-stream': str(stream_key)}
-
-            async with session.get('/', headers=headers) as response:
-                self.status = response.status
-
-                content = await response.content.read()
-
-                self.gotten.extend(content)
+            await self._do_get(session, stream_key)
 
         match body_type:
             case 'get-empty':
@@ -350,17 +354,17 @@ class Client:
                     self.status = response.status
                 await socket.close()
             case 'post-error':
-                await self._post_call(session, 'error')
+                await self._do_call(session, 'error')
             case 'post-octet':
-                await self._post_call(session, 'octet')
+                await self._do_call(session, 'octet')
             case 'post-plain':
-                await self._post_call(session, 'plain')
+                await self._do_call(session, 'plain')
             case 'post-unexpected':
-                await self._post(session, 'type', 'null', self._generate_partial())
+                await self._do_post(session, 'type', 'null', self._generate_partial())
             case 'post-pipe':
-                await self._post(session, 'pipe', 'null', self._generate())
+                await self._do_post(session, 'pipe', 'null', self._generate())
             case 'post-result':
-                await self._post(session, 'result', None, self._generate())
+                await self._do_post(session, 'result', None, self._generate())
             case 'exception' | 'result':
                 self.body = body
                 await socket.close()
@@ -379,7 +383,7 @@ class Client:
             case 'mock-result':
                 await socket.send_str(self._dumps('result', 'true'))
             case _:
-                await socket.send_str(message.data)
+                await socket.send_str(self._dumps(body_type, body['payload']))
 
     async def _run(self):
         async with ClientSession('ws://localhost:8889') as session:

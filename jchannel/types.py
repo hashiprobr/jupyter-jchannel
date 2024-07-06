@@ -60,7 +60,7 @@ class MetaGenerator:
         :param limit: The size limit.
         :type limit: int
 
-        :return: An async generator of bytes.
+        :return: An async generator of stream chunks.
         :rtype: async_generator[bytes]
         '''
         try:
@@ -76,7 +76,7 @@ class MetaGenerator:
         :param separator: The split separator.
         :type separator: bytes
 
-        :return: An async generator of bytes.
+        :return: An async generator of stream chunks.
         :rtype: async_generator[bytes]
         '''
         try:

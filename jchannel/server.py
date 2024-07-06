@@ -393,6 +393,7 @@ class Server(AbstractServer):
             self._streams[stream_key] = stream
 
         body['stream'] = stream_key
+
         body['type'] = body_type
 
         data = json.dumps(body)
@@ -516,13 +517,13 @@ class Server(AbstractServer):
             tasks.remove(task)
 
         request.app.socket = socket
-        try:
-            async for message in socket:
-                task = asyncio.create_task(self._on_message(socket, message))
-                tasks.add(task)
-                task.add_done_callback(done_callback)
-        finally:
-            request.app.socket = None
+
+        async for message in socket:
+            task = asyncio.create_task(self._on_message(socket, message))
+            tasks.add(task)
+            task.add_done_callback(done_callback)
+
+        request.app.socket = None
 
         while tasks:
             task = next(iter(tasks))
