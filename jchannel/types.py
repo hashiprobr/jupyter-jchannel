@@ -53,6 +53,20 @@ class MetaGenerator:
 
         return generate()
 
+    async def join(self):
+        '''
+        Convenience method that joins all chunks into one.
+
+        :return: The joined stream chunks as an array.
+        :rtype: bytearray
+        '''
+        content = bytearray()
+
+        async for chunk in self:
+            content.extend(chunk)
+
+        return content
+
     async def by_limit(self, limit=8192):
         '''
         Provides chunks with maximum size limit.

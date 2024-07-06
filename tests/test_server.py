@@ -842,8 +842,6 @@ async def test_does_not_handle_empty_get(caplog, server_and_client):
 
 
 async def test_handles_result_post(event, future, server_and_client):
-    content = bytearray()
-
     s, c = server_and_client
     await s.start()
     assert await c.connection == 101
@@ -854,8 +852,7 @@ async def test_handles_result_post(event, future, server_and_client):
     (args, _), = future.set_result.call_args_list
     chunks, = args
 
-    async for chunk in chunks:
-        content.extend(chunk)
+    content = await chunks.join()
 
     await send(s, 'socket-close')
     await c.disconnection
