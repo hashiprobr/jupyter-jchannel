@@ -359,7 +359,7 @@ class Server(AbstractServer):
             'payload': payload,
         }
 
-        await self._accept(socket, body_type, stream, body)
+        await self._accept(socket, body_type, body, stream)
 
         return future
 
@@ -388,7 +388,7 @@ class Server(AbstractServer):
 
         return socket
 
-    async def _accept(self, socket, body_type, stream, body):
+    async def _accept(self, socket, body_type, body, stream):
         if stream is None:
             stream_key = None
         else:
@@ -475,7 +475,7 @@ class Server(AbstractServer):
 
                     body['payload'] = payload
 
-                    await self._accept(socket, body_type, stream, body)
+                    await self._accept(socket, body_type, body, stream)
         except:
             logging.exception('Socket message exception')
 
@@ -638,7 +638,7 @@ class Server(AbstractServer):
 
             body['payload'] = payload
 
-            await self._accept(socket, body_type, stream, body)
+            await self._accept(socket, body_type, body, stream)
 
         await self._until(chunks._ended)
 
