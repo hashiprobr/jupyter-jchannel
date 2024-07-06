@@ -60,12 +60,12 @@ class MetaGenerator:
         :return: The joined stream chunks.
         :rtype: bytes
         '''
-        content = bytearray()
+        buffer = bytearray()
 
         async for chunk in self:
-            content.extend(chunk)
+            buffer.extend(chunk)
 
-        return bytes(content)
+        return bytes(buffer)
 
     async def by_limit(self, limit=8192):
         '''

@@ -779,12 +779,12 @@ async def test_receives_unexpected_body_type(server_and_client):
 
 
 async def test_handles_get(server_and_client):
-    content = bytearray()
+    buffer = bytearray()
 
     async def generate():
         for i in range(CONTENT_LENGTH):
             b = bytes(str(i), CONTENT_ENCODING)
-            content.extend(b)
+            buffer.extend(b)
             yield b
 
     s, c = server_and_client
@@ -801,7 +801,7 @@ async def test_handles_get(server_and_client):
     assert c.body['future'] == FUTURE_KEY
 
     assert c.status == 200
-    assert c.gotten == content
+    assert c.gotten == buffer
 
 
 async def test_handles_partial_get(caplog, server_and_client):
