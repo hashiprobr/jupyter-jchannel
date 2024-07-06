@@ -859,7 +859,7 @@ async def test_handles_result_post(event, future, server_and_client):
     await s.stop()
 
     assert c.status == 200
-    assert content == c.posted
+    assert content == bytes(c.posted)
 
 
 async def test_handles_pipe_post(server_and_client):
