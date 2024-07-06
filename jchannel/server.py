@@ -3,7 +3,7 @@ import asyncio
 import logging
 
 from enum import Enum, auto
-from inspect import isasyncgen, isawaitable
+from inspect import isawaitable
 from aiohttp import web, WSMsgType
 from jchannel.types import MetaGenerator, AbstractServer, FrontendError, StateError
 from jchannel.registry import Registry
@@ -334,8 +334,11 @@ class Server(AbstractServer):
         self._cleaned.set()
 
     async def _send(self, body_type, channel_key, input, stream, timeout):
-        if stream is not None and not isasyncgen(stream):
-            raise TypeError('Stream must be an async generator')
+        if stream is not None:
+            try:
+                stream = aiter(stream)
+            except TypeError:
+                raise TypeError('Stream must be an async iterable')
 
         if not isinstance(timeout, int):
             raise TypeError('Timeout must be an integer')
@@ -417,10 +420,10 @@ class Server(AbstractServer):
         if isawaitable(output):
             output = await output
 
-        if isasyncgen(output):
-            return output, 'null'
-
-        return None, json.dumps(output)
+        try:
+            return aiter(output), 'null'
+        except TypeError:
+            return None, json.dumps(output)
 
     async def _on_message(self, socket, message):
         try:
