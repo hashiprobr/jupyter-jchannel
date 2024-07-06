@@ -57,15 +57,15 @@ class MetaGenerator:
         '''
         Convenience method that joins all chunks into one.
 
-        :return: The joined stream chunks as an array.
-        :rtype: bytearray
+        :return: The joined stream chunks.
+        :rtype: bytes
         '''
         content = bytearray()
 
         async for chunk in self:
             content.extend(chunk)
 
-        return content
+        return bytes(content)
 
     async def by_limit(self, limit=8192):
         '''
