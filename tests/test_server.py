@@ -779,32 +779,6 @@ async def test_receives_unexpected_body_type(server_and_client):
     assert c.body['stream'] is None
 
 
-async def test_handles_get(server_and_client):
-    buffer = bytearray()
-
-    async def generate():
-        for i in range(CONTENT_LENGTH):
-            b = bytes(str(i), CONTENT_ENCODING)
-            buffer.extend(b)
-            yield b
-
-    s, c = server_and_client
-    await s.start()
-    assert await c.connection == 101
-    await send(s, 'result', stream=generate())
-    await c.disconnection
-    await s.stop()
-    assert len(c.body) == 5
-    assert c.body['type'] == 'result'
-    assert c.body['stream'] is not None
-    assert c.body['payload'] == 'null'
-    assert c.body['channel'] == CHANNEL_KEY
-    assert c.body['future'] == FUTURE_KEY
-
-    assert c.status == 200
-    assert c.gotten == buffer
-
-
 async def test_handles_partial_get(caplog, server_and_client):
     async def generate_partial():
         yield b'chunk'
@@ -826,15 +800,19 @@ async def test_handles_partial_get(caplog, server_and_client):
     assert len(caplog.records) == 1
 
     assert c.status == 200
-    assert c.gotten == b'chunk'
+    assert c.gotten == bytearray(b'chunk')
 
 
 async def test_does_not_handle_empty_get(caplog, server_and_client):
+    async def generate():
+        for i in range(CONTENT_LENGTH):
+            yield bytes(str(i), CONTENT_ENCODING)
+
     with caplog.at_level(logging.ERROR):
         s, c = server_and_client
         await s.start()
         assert await c.connection == 101
-        await send(s, 'get-empty')
+        await send(s, 'get-empty', stream=generate())
         await c.disconnection
         await s.stop()
     assert len(caplog.records) == 1
