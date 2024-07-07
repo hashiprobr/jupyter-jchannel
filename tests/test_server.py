@@ -259,9 +259,11 @@ class MockChannel:
         return args
 
     async def _consume(self, args):
-        async for _ in args[-1].by_separator():
-            pass
-        return args[:-1]
+        arg = 0
+        async for chunk in args[-1].by_separator():
+            arg += len(chunk)
+        args[-1] = arg
+        return args
 
     async def _resolve(self, args):
         return args
@@ -911,7 +913,7 @@ async def test_handles_plain_post(server_and_client):
     assert len(c.body) == 5
     assert c.body['type'] == 'result'
     assert c.body['stream'] is None
-    assert c.body['payload'] == '[1, 2]'
+    assert c.body['payload'] == '[1, 2, 2986]'
     assert c.body['channel'] == CHANNEL_KEY
     assert c.body['future'] == FUTURE_KEY
 
