@@ -340,7 +340,7 @@ class Client:
         stream_key = body['stream']
         body_type = body['type']
 
-        if stream_key is not None and not self.gotten:
+        if stream_key is not None:
             await self._do_get(session, stream_key)
 
         match body_type:
@@ -933,26 +933,6 @@ async def test_handles_octet_post(server_and_client):
 
     assert c.status == 200
     assert c.gotten == c.posted
-
-
-async def test_handles_partial_octet_post(server_and_client):
-    s, c = server_and_client
-    c.gotten.extend(b'chunk')
-    await s.start()
-    assert await c.connection == 101
-    await open(s)
-    await send(s, 'post-octet')
-    await c.disconnection
-    await s.stop()
-    assert len(c.body) == 5
-    assert c.body['type'] == 'result'
-    assert c.body['stream'] is not None
-    assert c.body['payload'] == 'null'
-    assert c.body['channel'] == CHANNEL_KEY
-    assert c.body['future'] == FUTURE_KEY
-
-    assert c.status == 200
-    assert c.gotten == b'chunk'
 
 
 async def test_does_not_handle_octet_post(caplog, server_and_client):

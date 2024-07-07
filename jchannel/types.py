@@ -51,8 +51,8 @@ class MetaGenerator:
 
         if chunk:
             return chunk
-        else:
-            raise StopAsyncIteration
+
+        raise StopAsyncIteration
 
     async def join(self):
         '''
