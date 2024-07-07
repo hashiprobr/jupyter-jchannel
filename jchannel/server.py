@@ -606,7 +606,7 @@ class Server(AbstractServer):
                         stream, payload = await self._call(channel, input, chunks)
                         body_type = 'result'
                     case 'pipe':
-                        stream = aiter(chunks)
+                        stream = chunks
                         payload = 'null'
                         body_type = 'result'
                     case _:
