@@ -396,7 +396,6 @@ class Server(AbstractServer):
             self._streams[stream_key] = stream
 
         body['stream'] = stream_key
-
         body['type'] = body_type
 
         data = json.dumps(body)

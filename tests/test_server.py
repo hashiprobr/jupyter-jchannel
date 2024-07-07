@@ -338,7 +338,6 @@ class Client:
         body = json.loads(message.data)
 
         stream_key = body['stream']
-
         body_type = body['type']
 
         if stream_key is not None and not self.gotten:
