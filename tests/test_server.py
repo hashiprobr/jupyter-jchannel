@@ -363,6 +363,10 @@ class Client:
             await self._do_get(session, stream_key)
 
         match body_type:
+            case 'options':
+                async with session.options('/') as response:
+                    self.status = response.status
+                await socket.close()
             case 'get-invalid':
                 async with session.get('/') as response:
                     self.status = response.status
@@ -1000,3 +1004,14 @@ async def test_does_not_handle_invalid_post(caplog, server_and_client):
     assert len(caplog.records) == 1
 
     assert c.status == 400
+
+
+async def test_allows(server_and_client):
+    s, c = server_and_client
+    await s.start()
+    assert await c.connection == 101
+    await send(s, 'options')
+    await c.disconnection
+    await s.stop()
+
+    assert c.status == 200

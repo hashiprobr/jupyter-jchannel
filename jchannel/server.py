@@ -11,6 +11,13 @@ from jchannel.channel import Channel
 from jchannel.frontend import frontend
 
 
+HEADERS = {
+    'access-control-allow-origin': '*',
+    'access-control-allow-methods': '*',
+    'access-control-allow-headers': '*',
+}
+
+
 if __debug__:  # pragma: no cover
     class DebugScenario(Enum):
         HANDLE_SOCKET_REQUEST_BEFORE_APP_RUNNER_IS_CLEANED = auto()
@@ -285,6 +292,7 @@ class Server(AbstractServer):
                 web.get('/socket', self._handle_socket),
                 web.get('/', self._handle_get),
                 web.post('/', self._handle_post),
+                web.options('/', self._allow),
             ])
 
             runner = web.AppRunner(app, keepalive_timeout=self._keepalive_timeout)
@@ -529,7 +537,7 @@ class Server(AbstractServer):
             await self._sentinel.set_and_yield(DebugScenario.HANDLE_SOCKET_REQUEST_BEFORE_APP_RUNNER_IS_CLEANED)
 
         if self._connection is None:
-            return web.Response(status=503)
+            return web.Response(status=503, headers=HEADERS)
 
         if self._connection.done():
             socket = self._connection.result()
@@ -542,7 +550,7 @@ class Server(AbstractServer):
             else:
                 status = 409
 
-            return web.Response(status=status)
+            return web.Response(status=status, headers=HEADERS)
 
         socket = web.WebSocketResponse(receive_timeout=self._receive_timeout, heartbeat=self._heartbeat)
 
@@ -596,9 +604,9 @@ class Server(AbstractServer):
         except:
             logging.exception('Get headers exception')
 
-            return web.Response(status=400)
+            return web.Response(status=400, headers=HEADERS)
 
-        response = web.StreamResponse()
+        response = web.StreamResponse(headers=HEADERS)
 
         await response.prepare(request)
 
@@ -637,7 +645,7 @@ class Server(AbstractServer):
         except:
             logging.exception('Post headers exception')
 
-            return web.Response(status=400)
+            return web.Response(status=400, headers=HEADERS)
 
         if future is None:
             try:
@@ -673,7 +681,7 @@ class Server(AbstractServer):
             except:
                 logging.exception('Post sending exception')
 
-                return web.Response(status=503)
+                return web.Response(status=503, headers=HEADERS)
 
             body['payload'] = payload
 
@@ -681,7 +689,10 @@ class Server(AbstractServer):
 
         await self._until(chunks._done)
 
-        return web.Response()
+        return web.Response(headers=HEADERS)
+
+    async def _allow(self, request):
+        return web.Response(headers=HEADERS)
 
     async def _until(self, event):
         self._events.add(event)
