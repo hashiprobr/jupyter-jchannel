@@ -302,16 +302,6 @@ class Client:
 
         return json.dumps(body)
 
-    async def _generate(self):
-        for i in range(CONTENT_LENGTH):
-            b = bytes(str(i), CONTENT_ENCODING)
-            self.posted.extend(b)
-            yield b
-
-    async def _generate_partial(self):
-        yield b'chunk'
-        raise Exception
-
     async def _do_get(self, session, stream_key):
         headers = {'x-jchannel-stream': str(stream_key)}
 
@@ -336,6 +326,16 @@ class Client:
 
         await self._do_post(session, 'call', payload, self._generate())
 
+    async def _generate_partial(self):
+        yield b'chunk'
+        raise Exception
+
+    async def _generate(self):
+        for i in range(CONTENT_LENGTH):
+            b = bytes(str(i), CONTENT_ENCODING)
+            self.posted.extend(b)
+            yield b
+
     async def _on_message(self, session, socket, message):
         body = json.loads(message.data)
 
@@ -346,11 +346,11 @@ class Client:
             await self._do_get(session, stream_key)
 
         match body_type:
-            case 'get-empty':
+            case 'get-invalid':
                 async with session.get('/') as response:
                     self.status = response.status
                 await socket.close()
-            case 'post-empty':
+            case 'post-invalid':
                 async with session.post('/') as response:
                     self.status = response.status
                 await socket.close()
@@ -803,7 +803,7 @@ async def test_handles_partial_get(caplog, server_and_client):
     assert c.gotten == bytearray(b'chunk')
 
 
-async def test_does_not_handle_empty_get(caplog, server_and_client):
+async def test_does_not_handle_invalid_get(caplog, server_and_client):
     async def generate():
         for i in range(CONTENT_LENGTH):
             yield bytes(str(i), CONTENT_ENCODING)
@@ -812,7 +812,7 @@ async def test_does_not_handle_empty_get(caplog, server_and_client):
         s, c = server_and_client
         await s.start()
         assert await c.connection == 101
-        await send(s, 'get-empty', stream=generate())
+        await send(s, 'get-invalid', stream=generate())
         await c.disconnection
         await s.stop()
     assert len(caplog.records) == 1
@@ -953,12 +953,12 @@ async def test_does_not_handle_error_post(caplog, server_and_client):
     assert c.status == 200
 
 
-async def test_does_not_handle_empty_post(caplog, server_and_client):
+async def test_does_not_handle_invalid_post(caplog, server_and_client):
     with caplog.at_level(logging.ERROR):
         s, c = server_and_client
         await s.start()
         assert await c.connection == 101
-        await send(s, 'post-empty')
+        await send(s, 'post-invalid')
         await c.disconnection
         await s.stop()
     assert len(caplog.records) == 1
