@@ -124,6 +124,9 @@ class Server(AbstractServer):
         self._heartbeat = heartbeat
 
         self._send_timeout = 3
+        self._receive_timeout = None
+        self._keepalive_timeout = 75
+        self._shutdown_timeout = 60
 
         self._cleaned = asyncio.Event()
         self._cleaned.set()
@@ -149,7 +152,7 @@ class Server(AbstractServer):
     @property
     def send_timeout(self):
         '''
-        The post send timeout in seconds.
+        The post send timeout in seconds. Default is 3.
 
         When this server receives a post request, this timeout is used to send a
         WebSocket response message.
@@ -159,6 +162,42 @@ class Server(AbstractServer):
     @send_timeout.setter
     def send_timeout(self, value):
         self._send_timeout = value
+
+    @property
+    def receive_timeout(self):
+        '''
+        As defined in `aiohttp.web.WebSocketResponse
+        <https://docs.aiohttp.org/en/stable/web_reference.html#aiohttp.web.WebSocketResponse>`_.
+        '''
+        return self._receive_timeout
+
+    @receive_timeout.setter
+    def receive_timeout(self, value):
+        self._receive_timeout = value
+
+    @property
+    def keepalive_timeout(self):
+        '''
+        As defined in `aiohttp.web.AppRunner
+        <https://docs.aiohttp.org/en/stable/web_reference.html#aiohttp.web.AppRunner>`_.
+        '''
+        return self._keepalive_timeout
+
+    @keepalive_timeout.setter
+    def keepalive_timeout(self, value):
+        self._keepalive_timeout = value
+
+    @property
+    def shutdown_timeout(self):
+        '''
+        As defined in `aiohttp.web.TCPSite
+        <https://docs.aiohttp.org/en/stable/web_reference.html#aiohttp.web.TCPSite>`_.
+        '''
+        return self._shutdown_timeout
+
+    @shutdown_timeout.setter
+    def shutdown_timeout(self, value):
+        self._shutdown_timeout = value
 
     def start_client(self):
         '''
@@ -248,11 +287,11 @@ class Server(AbstractServer):
                 web.post('/', self._handle_post),
             ])
 
-            runner = web.AppRunner(app)
+            runner = web.AppRunner(app, keepalive_timeout=self._keepalive_timeout)
 
             await runner.setup()
 
-            site = web.TCPSite(runner, self._host, self._port)
+            site = web.TCPSite(runner, self._host, self._port, shutdown_timeout=self._shutdown_timeout)
 
             try:
                 await site.start()
@@ -505,7 +544,7 @@ class Server(AbstractServer):
 
             return web.Response(status=status)
 
-        socket = web.WebSocketResponse(heartbeat=self._heartbeat)
+        socket = web.WebSocketResponse(receive_timeout=self._receive_timeout, heartbeat=self._heartbeat)
 
         self._connection.set_result(socket)
 

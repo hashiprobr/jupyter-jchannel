@@ -121,7 +121,7 @@ class Channel:
     @property
     def context_timeout(self):
         '''
-        The context request timeout in seconds.
+        The context request timeout in seconds. Default is 3.
 
         When this channel is used as a context manager, this timeout is passed
         to the open and close requests.
