@@ -6,7 +6,8 @@ build:
     python: '3.10'
   jobs:
     post_install:
-      - pip install jupyter-jchannel ipython ipywidgets
+    - pip install --editable .
+    - pip install ipywidgets
 
 sphinx:
   configuration: docs/source/conf.py
