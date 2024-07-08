@@ -41,18 +41,21 @@ class MetaGenerator:
     def __init__(self, reader):
         self._reader = reader
 
-        self._ended = asyncio.Event()
+        self._done = asyncio.Event()
 
     def __aiter__(self):
         return self
 
     async def __anext__(self):
-        chunk = await self._reader.readany()
+        try:
+            chunk = await self._reader.readany()
 
-        if chunk:
-            return chunk
+            if not chunk:
+                raise StopAsyncIteration
+        finally:
+            self._done.set()
 
-        raise StopAsyncIteration
+        return chunk
 
     async def join(self):
         '''
@@ -82,7 +85,7 @@ class MetaGenerator:
             async for chunk in self._reader.iter_chunked(limit):
                 yield chunk
         finally:
-            self._ended.set()
+            self._done.set()
 
     async def by_separator(self, separator=b'\n'):
         '''
@@ -103,4 +106,4 @@ class MetaGenerator:
                 else:
                     break
         finally:
-            self._ended.set()
+            self._done.set()

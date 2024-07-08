@@ -621,7 +621,7 @@ class Server(AbstractServer):
                 body_type = 'exception'
 
             if stream is None:
-                if not chunks._ended.is_set():
+                if not chunks._done.is_set():
                     try:
                         async for _ in chunks:
                             pass
@@ -639,7 +639,7 @@ class Server(AbstractServer):
 
             await self._accept(socket, body_type, body, stream)
 
-        await self._until(chunks._ended)
+        await self._until(chunks._done)
 
         return web.Response()
 
