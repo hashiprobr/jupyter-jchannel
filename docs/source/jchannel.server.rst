@@ -6,7 +6,7 @@
 
 .. autoclass:: Server
 
-   .. autoproperty:: response_timeout
+   .. autoproperty:: send_timeout
    .. automethod:: start_client
    .. automethod:: stop_client
    .. automethod:: start

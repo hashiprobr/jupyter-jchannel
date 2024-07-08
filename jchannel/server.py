@@ -122,7 +122,8 @@ class Server(AbstractServer):
         self._port = port
         self._url = url
         self._heartbeat = heartbeat
-        self._response_timeout = 3
+
+        self._send_timeout = 3
 
         self._cleaned = asyncio.Event()
         self._cleaned.set()
@@ -146,18 +147,18 @@ class Server(AbstractServer):
         super().__init__()
 
     @property
-    def response_timeout(self):
+    def send_timeout(self):
         '''
-        The post response timeout in seconds.
+        The post send timeout in seconds.
 
-        When this server receives a post request, this timeout is passed to the
-        socket response.
+        When this server receives a post request, this timeout is used to send a
+        WebSocket response message.
         '''
-        return self._response_timeout
+        return self._send_timeout
 
-    @response_timeout.setter
-    def response_timeout(self, value):
-        self._response_timeout = value
+    @send_timeout.setter
+    def send_timeout(self, value):
+        self._send_timeout = value
 
     def start_client(self):
         '''
@@ -629,7 +630,7 @@ class Server(AbstractServer):
                         logging.exception('Post reading exception')
 
             try:
-                socket = await self._propose(self._response_timeout)
+                socket = await self._propose(self._send_timeout)
             except:
                 logging.exception('Post sending exception')
 
