@@ -100,6 +100,27 @@ class Channel:
         '''
         return asyncio.create_task(self._echo(args, timeout))
 
+    def pipe(self, stream, timeout=3):
+        '''
+        Sends a byte stream to the server and receives it back.
+
+        Under normal circumstances, this method should not be called. It should
+        only be called for debugging or testing purposes.
+
+        It is particularly useful to verify whether the bytes are robust to GET
+        and POST streaming.
+
+        :param stream: An async iterable of bytes-like objects.
+
+        :param timeout: The request timeout in seconds.
+        :type timeout: int
+
+        :return: A task that can be awaited to obtain the same bytes as a meta
+            generator.
+        :rtype: asyncio.Task[jchannel.types.MetaGenerator]
+        '''
+        return asyncio.create_task(self._pipe(stream, timeout))
+
     def call(self, name, *args, timeout=3):
         '''
         Makes a call to the server.
@@ -175,6 +196,9 @@ class Channel:
     async def _echo(self, args, timeout):
         return await self._send('echo', args, None, timeout)
 
+    async def _pipe(self, stream, timeout):
+        return await self._send('pipe', None, stream, timeout)
+
     async def _call(self, name, args, timeout):
         return await self._send('call', {'name': name, 'args': args}, None, timeout)
 
@@ -187,10 +211,13 @@ class Channel:
         try:
             return await future
         except StateError:
-            logging.warning('Channel is closed: trying to open...')
+            if stream is None:
+                logging.warning('Channel is closed: trying to open...')
 
-            await self._open(timeout)
+                await self._open(timeout)
 
-            future = await self._server._send(body_type, id(self), input, stream, timeout)
+                future = await self._server._send(body_type, id(self), input, stream, timeout)
 
-            return await future
+                return await future
+            else:
+                raise StateError('Channel was closed')

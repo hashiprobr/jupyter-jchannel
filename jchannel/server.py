@@ -332,7 +332,7 @@ class Server(AbstractServer):
                         await self._sentinel.set_and_yield(DebugScenario.READ_DISCONNECTION_RESULT_BEFORE_SESSION_REFERENCES_ARE_NEW)
 
                     if restart:
-                        raise StateError('Server is restarting')
+                        raise StateError('Server was restarting')
                 else:
                     self._disconnection.set_result(False)
 

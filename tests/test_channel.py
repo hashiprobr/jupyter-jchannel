@@ -123,6 +123,19 @@ async def test_echoes_twice(caplog, server, c):
     assert len(caplog.records) == 1
 
 
+async def test_pipes(c):
+    stream = object()
+    output = ['pipe', id(c), None, stream, 3]
+    assert await c.pipe(stream) == output
+
+
+async def test_does_not_pipe_twice(server, c):
+    server._closed = True
+    stream = object()
+    with pytest.raises(StateError):
+        await c.pipe(stream)
+
+
 async def test_calls(c):
     output = ['call', id(c), {'name': 'name', 'args': (1, 2)}, None, 3]
     assert await c.call('name', 1, 2) == output
