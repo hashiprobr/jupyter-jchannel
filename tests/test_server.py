@@ -186,20 +186,23 @@ async def send(s, body_type, input=None, stream=None, timeout=3):
     await s._send(body_type, CHANNEL_KEY, input, stream, timeout)
 
 
-async def test_gets_timeouts(s):
+async def test_gets_parameters(s):
     assert s.send_timeout == 3
     assert s.receive_timeout is None
+    assert s.max_msg_size == 4194304
     assert s.keepalive_timeout == 75
     assert s.shutdown_timeout == 60
 
 
-async def test_sets_timeouts(s):
+async def test_sets_parameters(s):
     s.send_timeout = None
     s.receive_timeout = 0
+    s.max_msg_size = None
     s.keepalive_timeout = None
     s.shutdown_timeout = None
     assert s.send_timeout is None
     assert s.receive_timeout == 0
+    assert s.max_msg_size is None
     assert s.keepalive_timeout is None
     assert s.shutdown_timeout is None
 

@@ -132,6 +132,7 @@ class Server(AbstractServer):
 
         self._send_timeout = 3
         self._receive_timeout = None
+        self._max_msg_size = 4194304
         self._keepalive_timeout = 75
         self._shutdown_timeout = 60
 
@@ -181,6 +182,18 @@ class Server(AbstractServer):
     @receive_timeout.setter
     def receive_timeout(self, value):
         self._receive_timeout = value
+
+    @property
+    def max_msg_size(self):
+        '''
+        As defined in `aiohttp.web.WebSocketResponse
+        <https://docs.aiohttp.org/en/stable/web_reference.html#aiohttp.web.WebSocketResponse>`_.
+        '''
+        return self._max_msg_size
+
+    @max_msg_size.setter
+    def max_msg_size(self, value):
+        self._max_msg_size = value
 
     @property
     def keepalive_timeout(self):
@@ -258,7 +271,7 @@ class Server(AbstractServer):
         channel = Channel(self, code)
         try:
             await channel._open(timeout)
-        except Exception as error:
+        except:
             channel.destroy()
             raise
         return channel
@@ -303,7 +316,7 @@ class Server(AbstractServer):
 
             try:
                 await site.start()
-            except OSError as error:
+            except OSError:
                 if not self._connection.done():
                     self._connection.set_result(None)
 
@@ -552,7 +565,11 @@ class Server(AbstractServer):
 
             return web.Response(status=status, headers=HEADERS)
 
-        socket = web.WebSocketResponse(receive_timeout=self._receive_timeout, heartbeat=self._heartbeat)
+        socket = web.WebSocketResponse(
+            receive_timeout=self._receive_timeout,
+            heartbeat=self._heartbeat,
+            max_msg_size=self._max_msg_size,
+        )
 
         self._connection.set_result(socket)
 
