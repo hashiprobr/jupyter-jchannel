@@ -693,8 +693,6 @@ class Server(AbstractServer):
             except:
                 logging.exception('Post sending exception')
 
-                await chunks._drain()
-
                 return web.Response(status=503, headers=HEADERS)
 
             body['payload'] = payload
