@@ -260,7 +260,7 @@ class Server(AbstractServer):
             await channel._open(timeout)
         except Exception as error:
             channel.destroy()
-            raise error
+            raise
         return channel
 
     async def __aenter__(self):
@@ -317,7 +317,7 @@ class Server(AbstractServer):
 
                 self._cleaned.set()
 
-                raise error
+                raise
 
             self.start_client()
 
@@ -669,17 +669,14 @@ class Server(AbstractServer):
                 body_type = 'exception'
 
             if stream is None:
-                if not chunks._done.is_set():
-                    try:
-                        async for _ in chunks:
-                            pass
-                    except:
-                        logging.exception('Post reading exception')
+                await chunks._drain()
 
             try:
                 socket = await self._propose(self._send_timeout)
             except:
                 logging.exception('Post sending exception')
+
+                await chunks._drain()
 
                 return web.Response(status=503, headers=HEADERS)
 

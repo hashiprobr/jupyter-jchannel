@@ -327,7 +327,7 @@ class Client:
 
             content = await response.content.read()
 
-            self.gotten.extend(content)
+        self.gotten.extend(content)
 
     async def _do_post(self, session, body_type, payload, data):
         headers = {'x-jchannel-data': self._dumps(body_type, payload)}
