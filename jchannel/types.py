@@ -1,5 +1,5 @@
+import math
 import asyncio
-import logging
 
 from abc import ABC, abstractmethod
 
@@ -60,14 +60,6 @@ class MetaGenerator:
 
         return chunk
 
-    async def _drain(self):
-        if not self._done.is_set():
-            try:
-                async for _ in self:
-                    pass
-            except:
-                logging.exception('Post reading exception')
-
     async def join(self):
         '''
         Convenience method that joins all chunks into one.
@@ -123,133 +115,141 @@ class MetaGenerator:
             self._done.set()
 
 
-# class MetaGenerator:
-#     def __init__(self, queue):
-#         self._queue = queue
-#
-#         self._done = asyncio.Event()
-#
-#     def __aiter__(self):
-#         return self
-#
-#     async def __anext__(self):
-#         try:
-#             chunk = await self._queue.get()
-#
-#             if chunk is None:
-#                 raise StopAsyncIteration
-#         except:
-#             self._done.set()
-#
-#             raise
-#
-#         return chunk
-#
-#     async def join(self):
-#         buffer = bytearray()
-#
-#         async for chunk in self:
-#             buffer.extend(chunk)
-#
-#         return bytes(buffer)
-#
-#     async def by_limit(self, limit=8192):
-#         if not isinstance(limit, int):
-#             raise TypeError('Limit must be an integer')
-#
-#         if limit <= 0:
-#             raise ValueError('Limit must be positive')
-#
-#         buffer = bytearray(limit)
-#
-#         size = 0
-#
-#         async for data in self:
-#             chunk = memoryview(data)
-#             length = len(chunk)
-#
-#             begin = 0
-#             end = limit - size
-#
-#             if length > end:
-#                 buffer[size:] = chunk[begin:end]
-#                 yield bytes(buffer)
-#                 size = 0
-#
-#                 begin = end
-#                 end += limit
-#
-#                 while end <= length:
-#                     yield bytes(chunk[begin:end])
-#
-#                     begin = end
-#                     end += limit
-#
-#                 chunk = chunk[begin:]
-#                 length = len(chunk)
-#
-#             new_size = size + length
-#
-#             buffer[size:new_size] = chunk
-#             size = new_size
-#
-#         if size > 0:
-#             yield bytes(buffer[:size])
-#
-#     async def by_separator(self, separator=b'\n'):
-#         separator = self._clean(separator)
-#
-#         if not separator:
-#             raise ValueError('Separator cannot be empty')
-#
-#         buffer = bytearray()
-#         size = 0
-#         offset = 0
-#
-#         async for data in self:
-#             chunk = memoryview(data)
-#
-#             buffer.extend(chunk)
-#             size = len(buffer)
-#
-#             shift = 0
-#
-#             while offset <= size - len(separator):
-#                 if self._match(buffer, offset, separator):
-#                     offset += len(separator)
-#                     view = memoryview(buffer)
-#                     yield bytes(view[shift:offset])
-#                     shift = offset
-#                 else:
-#                     offset += 1
-#
-#             if shift > 0:
-#                 new_size = size - shift
-#                 buffer[:new_size] = buffer[shift:size]
-#                 size = new_size
-#                 offset -= shift
-#
-#         if size > 0:
-#             yield bytes(buffer[:size])
-#
-#     def _clean(self, separator):
-#         if isinstance(separator, str):
-#             return separator.encode()
-#
-#         if isinstance(separator, bytes):
-#             return separator
-#
-#         raise TypeError('Separator must be a string or a bytes object')
-#
-#     def _match(self, buffer, offset, separator):
-#         i = offset
-#         j = 0
-#
-#         while j < len(separator):
-#             if buffer[i] != separator[j]:
-#                 return False
-#
-#             i += 1
-#             j += 1
-#
-#         return True
+class PseudoMetaGenerator:
+    def __init__(self, queue):
+        self._queue = queue
+
+        self._done = asyncio.Event()
+
+    def __aiter__(self):
+        return self
+
+    async def __anext__(self):
+        try:
+            chunk = await self._queue.get()
+
+            if chunk is None:
+                raise StopAsyncIteration
+        except:
+            self._done.set()
+
+            raise
+
+        return chunk
+
+    async def join(self):
+        buffer = bytearray()
+
+        async for chunk in self:
+            buffer.extend(chunk)
+
+        return bytes(buffer)
+
+    async def by_limit(self, limit=8192):
+        if not isinstance(limit, int):
+            raise TypeError('Limit must be an integer')
+
+        if limit <= 0:
+            raise ValueError('Limit must be positive')
+
+        buffer = bytearray(limit)
+
+        size = 0
+
+        async for chunk in self:
+            chunk = memoryview(chunk)
+            length = len(chunk)
+
+            begin = 0
+            end = limit - size
+
+            if length > end:
+                buffer[size:] = chunk[begin:end]
+                yield bytes(buffer)
+                size = 0
+
+                begin = end
+                end += limit
+
+                while end <= length:
+                    yield bytes(chunk[begin:end])
+
+                    begin = end
+                    end += limit
+
+                chunk = chunk[begin:]
+                length = len(chunk)
+
+            new_size = size + length
+
+            buffer[size:new_size] = chunk
+            size = new_size
+
+        if size > 0:
+            buffer = memoryview(buffer)
+            yield bytes(buffer[:size])
+
+    async def by_separator(self, separator=b'\n'):
+        separator = self._clean(separator)
+
+        if not separator:
+            raise ValueError('Separator cannot be empty')
+
+        limit = 0
+        buffer = memoryview(bytearray())
+        size = 0
+        offset = 0
+
+        async for chunk in self:
+            new_size = size + len(chunk)
+
+            if new_size > limit:
+                limit = 2 ** math.ceil(math.log2(new_size))
+                new_buffer = bytearray(limit)
+                new_buffer[:size] = buffer[:size]
+                buffer = memoryview(new_buffer)
+
+            buffer[size:new_size] = chunk
+            size = new_size
+
+            shift = 0
+
+            while offset <= size - len(separator):
+                if self._match(buffer, offset, separator):
+                    offset += len(separator)
+                    yield bytes(buffer[shift:offset])
+                    shift = offset
+                else:
+                    offset += 1
+
+            if shift > 0:
+                new_size = size - shift
+
+                buffer[:new_size] = buffer[shift:size]
+                size = new_size
+                offset -= shift
+
+        if size > 0:
+            yield bytes(buffer[:size])
+
+    def _clean(self, separator):
+        if isinstance(separator, str):
+            return separator.encode()
+
+        if isinstance(separator, bytes):
+            return separator
+
+        raise TypeError('Separator must be a string or a bytes object')
+
+    def _match(self, buffer, offset, separator):
+        i = offset
+        j = 0
+
+        while j < len(separator):
+            if buffer[i] != separator[j]:
+                return False
+
+            i += 1
+            j += 1
+
+        return True

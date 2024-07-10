@@ -686,7 +686,12 @@ class Server(AbstractServer):
                 body_type = 'exception'
 
             if stream is None:
-                await chunks._drain()
+                if not chunks._done.is_set():
+                    try:
+                        async for _ in chunks:
+                            pass
+                    except:
+                        logging.exception('Post reading exception')
 
             try:
                 socket = await self._propose(self._send_timeout)

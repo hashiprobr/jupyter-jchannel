@@ -19,7 +19,6 @@ FUTURE_KEY = 123
 CHANNEL_KEY = 456
 
 CONTENT_LENGTH = 1024
-CONTENT_ENCODING = 'utf-8'
 
 
 async def test_instantiates():
@@ -352,7 +351,7 @@ class Client:
 
     async def _generate(self):
         for i in range(CONTENT_LENGTH):
-            b = bytes(str(i), CONTENT_ENCODING)
+            b = str(i).encode()
             self.posted.extend(b)
             yield b
 
@@ -830,7 +829,7 @@ async def test_handles_partial_get(caplog, server_and_client):
 async def test_does_not_handle_invalid_get(caplog, server_and_client):
     async def generate():
         for i in range(CONTENT_LENGTH):
-            yield bytes(str(i), CONTENT_ENCODING)
+            yield str(i).encode()
 
     with caplog.at_level(logging.ERROR):
         s, c = server_and_client
