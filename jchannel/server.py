@@ -130,6 +130,7 @@ class Server(AbstractServer):
         self._url = url
         self._heartbeat = heartbeat
 
+        self._high_water_mark = 1
         self._send_timeout = 3
         self._receive_timeout = None
         self._max_msg_size = 4194304
@@ -158,6 +159,14 @@ class Server(AbstractServer):
 
         self._registry = Registry()
         super().__init__()
+
+    @property
+    def high_water_mark(self):
+        return self._high_water_mark
+
+    @high_water_mark.setter
+    def high_water_mark(self, value):
+        self._high_water_mark = value
 
     @property
     def send_timeout(self):
@@ -630,7 +639,7 @@ class Server(AbstractServer):
 
         await socket.prepare(request)
 
-        queue = StreamQueue(1)
+        queue = StreamQueue(self._high_water_mark)
 
         queue_key = id(queue)
         self._queues[queue_key] = queue
