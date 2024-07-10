@@ -584,34 +584,34 @@ class Server(AbstractServer):
             tasks.remove(task)
 
         request.app.socket = socket
+        try:
+            async for message in socket:
+                task = asyncio.create_task(self._on_message(socket, message))
+                tasks.add(task)
+                task.add_done_callback(done_callback)
+        finally:
+            request.app.socket = None
 
-        async for message in socket:
-            task = asyncio.create_task(self._on_message(socket, message))
-            tasks.add(task)
-            task.add_done_callback(done_callback)
+            while tasks:
+                task = next(iter(tasks))
+                await task
+                task.remove_done_callback(done_callback)
 
-        request.app.socket = None
+            if self._disconnection is not None:
+                if __debug__:  # pragma: no cover
+                    await self._sentinel.wait_on_count(DebugScenario.READ_DISCONNECTION_STATE_AFTER_DISCONNECTION_RESULT_IS_SET, 1)
 
-        while tasks:
-            task = next(iter(tasks))
-            await task
-            task.remove_done_callback(done_callback)
+                if not self._disconnection.done():
+                    self._disconnection.set_result(True)
 
-        if self._disconnection is not None:
-            if __debug__:  # pragma: no cover
-                await self._sentinel.wait_on_count(DebugScenario.READ_DISCONNECTION_STATE_AFTER_DISCONNECTION_RESULT_IS_SET, 1)
+            for event in self._events:
+                event.set()
 
-            if not self._disconnection.done():
-                self._disconnection.set_result(True)
+            self._streams.clear()
 
-        for event in self._events:
-            event.set()
+            self._registry.clear()
 
-        self._streams.clear()
-
-        self._registry.clear()
-
-        return socket
+            return socket
 
     async def _handle_get(self, request):
         try:
