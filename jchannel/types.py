@@ -23,15 +23,83 @@ class FrontendError(Exception):
     '''
 
 
-class AbstractServer(ABC):
-    def __init__(self):
-        self._channels = {}
+# class MetaGenerator:
+#     def __init__(self, reader):
+#         self._reader = reader
+#
+#         self._done = asyncio.Event()
+#
+#     def __aiter__(self):
+#         return self
+#
+#     async def __anext__(self):
+#         try:
+#             chunk = await self._reader.readany()
+#
+#             if not chunk:
+#                 raise StopAsyncIteration
+#         except:
+#             self._done.set()
+#
+#             raise
+#
+#         return chunk
+#
+#     async def join(self):
+#         buffer = bytearray()
+#
+#         async for chunk in self:
+#             buffer.extend(chunk)
+#
+#         return bytes(buffer)
+#
+#     async def by_limit(self, limit=8192):
+#         try:
+#             async for chunk in self._reader.iter_chunked(limit):
+#                 yield chunk
+#         finally:
+#             self._done.set()
+#
+#     async def by_separator(self, separator=b'\n'):
+#         try:
+#             while True:
+#                 chunk = await self._reader.readuntil(separator)
+#
+#                 if chunk:
+#                     yield chunk
+#                 else:
+#                     break
+#         finally:
+#             self._done.set()
 
-    @abstractmethod
-    async def _send(self, body_type, channel_key, input, stream, timeout):
-        '''
-        Sends WebSocket message.
-        '''
+
+class AbortError(Exception):
+    pass
+
+
+class StreamQueue(asyncio.Queue):
+    def __init__(self, maxsize):
+        super().__init__(maxsize)
+
+        self._aborted = False
+
+    def abort(self):
+        self._aborted = True
+
+        if self.full():
+            self.get_nowait()
+
+    async def get(self):
+        if self._aborted:
+            return None
+
+        return await super().get()
+
+    async def put(self, item):
+        if self._aborted:
+            raise AbortError
+
+        await super().put(item)
 
 
 class MetaGenerator:
@@ -39,8 +107,8 @@ class MetaGenerator:
     Provides generators to read a frontend stream.
     '''
 
-    def __init__(self, reader):
-        self._reader = reader
+    def __init__(self, queue):
+        self._queue = queue
 
         self._done = asyncio.Event()
 
@@ -48,10 +116,13 @@ class MetaGenerator:
         return self
 
     async def __anext__(self):
-        try:
-            chunk = await self._reader.readany()
+        if self._done.is_set():
+            raise StopAsyncIteration
 
-            if not chunk:
+        try:
+            chunk = await self._queue.get()
+
+            if chunk is None:
                 raise StopAsyncIteration
         except:
             self._done.set()
@@ -86,66 +157,6 @@ class MetaGenerator:
         :rtype: async_generator[bytes]
         '''
 
-        try:
-            async for chunk in self._reader.iter_chunked(limit):
-                yield chunk
-        finally:
-            self._done.set()
-
-    async def by_separator(self, separator=b'\n'):
-        '''
-        Provides chunks according to a separator.
-
-        :param separator: The split separator.
-        :type separator: bytes
-
-        :return: An async generator of stream chunks.
-        :rtype: async_generator[bytes]
-        '''
-
-        try:
-            while True:
-                chunk = await self._reader.readuntil(separator)
-
-                if chunk:
-                    yield chunk
-                else:
-                    break
-        finally:
-            self._done.set()
-
-
-class PseudoMetaGenerator:
-    def __init__(self, queue):
-        self._queue = queue
-
-        self._done = asyncio.Event()
-
-    def __aiter__(self):
-        return self
-
-    async def __anext__(self):
-        try:
-            chunk = await self._queue.get()
-
-            if chunk is None:
-                raise StopAsyncIteration
-        except:
-            self._done.set()
-
-            raise
-
-        return chunk
-
-    async def join(self):
-        buffer = bytearray()
-
-        async for chunk in self:
-            buffer.extend(chunk)
-
-        return bytes(buffer)
-
-    async def by_limit(self, limit=8192):
         if not isinstance(limit, int):
             raise TypeError('Limit must be an integer')
 
@@ -190,6 +201,16 @@ class PseudoMetaGenerator:
             yield bytes(buffer[:size])
 
     async def by_separator(self, separator=b'\n'):
+        '''
+        Provides chunks according to a separator.
+
+        :param separator: The split separator.
+        :type separator: bytes
+
+        :return: An async generator of stream chunks.
+        :rtype: async_generator[bytes]
+        '''
+
         separator = self._clean(separator)
 
         if not separator:
@@ -253,3 +274,14 @@ class PseudoMetaGenerator:
             j += 1
 
         return True
+
+
+class AbstractServer(ABC):
+    def __init__(self):
+        self._channels = {}
+
+    @abstractmethod
+    async def _send(self, body_type, channel_key, input, stream, timeout):
+        '''
+        Sends WebSocket message.
+        '''

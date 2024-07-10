@@ -4,7 +4,7 @@ import logging
 import pytest
 
 from unittest.mock import Mock
-from aiohttp import ClientSession, ClientConnectionError, WSServerHandshakeError
+from aiohttp import ClientSession, WSServerHandshakeError
 from jchannel.types import FrontendError, StateError
 from jchannel.server import Server, DebugScenario
 
@@ -340,8 +340,26 @@ class Client:
                 self.posted.extend(b)
                 yield b
 
-        async with session.post('/', data=generate(), headers=headers) as response:
-            self.status = response.status
+        # async with session.post('/', data=generate(), headers=headers) as response:
+        #     self.status = response.status
+
+        async with session.ws_connect('/upload') as socket:
+            message = await socket.receive()
+
+            async with session.post('/', data=message.data, headers=headers) as response:
+                assert response.status == 200
+
+                try:
+                    async for chunk in generate():
+                        await socket.send_bytes(chunk)
+
+                    await socket.close()
+                except:
+                    pass
+
+                content = await response.content.read()
+
+                self.status = int(content)
 
     async def _do_call(self, session, name):
         payload = f'{{"name": "{name}", "args": [1, 2]}}'

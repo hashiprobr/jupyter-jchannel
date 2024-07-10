@@ -1,13 +1,12 @@
-import asyncio
 import pytest
 
-from jchannel.types import PseudoMetaGenerator
+from jchannel.types import MetaGenerator, StreamQueue
 
 pytestmark = pytest.mark.asyncio(scope='module')
 
 
 def create_chunks(input):
-    queue = asyncio.Queue()
+    queue = StreamQueue(0)
 
     for data in input:
         value = data.encode()
@@ -16,7 +15,7 @@ def create_chunks(input):
 
     queue.put_nowait(None)
 
-    return PseudoMetaGenerator(queue)
+    return MetaGenerator(queue)
 
 
 async def test_iterates():

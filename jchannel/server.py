@@ -5,7 +5,7 @@ import logging
 from enum import Enum, auto
 from inspect import isawaitable
 from aiohttp import web, WSMsgType
-from jchannel.types import MetaGenerator, AbstractServer, FrontendError, StateError
+from jchannel.types import AbstractServer, MetaGenerator, StreamQueue, AbortError, FrontendError, StateError
 from jchannel.registry import Registry
 from jchannel.channel import Channel
 from jchannel.frontend import frontend
@@ -150,7 +150,9 @@ class Server(AbstractServer):
         if __debug__:  # pragma: no cover
             self._sentinel = DebugSentinel()
 
-        self._events = set()
+        # self._events = set()
+
+        self._queues = {}
 
         self._streams = {}
 
@@ -303,6 +305,7 @@ class Server(AbstractServer):
 
             app.add_routes([
                 web.get('/socket', self._handle_socket),
+                web.get('/upload', self._handle_upload),  # pseudo-stream
                 web.get('/', self._handle_get),
                 web.post('/', self._handle_post),
                 web.options('/', self._allow),
@@ -604,14 +607,47 @@ class Server(AbstractServer):
                 if not self._disconnection.done():
                     self._disconnection.set_result(True)
 
-            for event in self._events:
-                event.set()
+            # for event in self._events:
+            #     event.set()
+
+            for queue in self._queues.values():
+                queue.abort()
+
+            self._queues.clear()
 
             self._streams.clear()
 
             self._registry.clear()
 
-            return socket
+        return socket
+
+    async def _handle_upload(self, request):
+        socket = web.WebSocketResponse(
+            receive_timeout=self._receive_timeout,
+            heartbeat=self._heartbeat,
+            max_msg_size=self._max_msg_size,
+        )
+
+        await socket.prepare(request)
+
+        queue = StreamQueue(1)
+
+        queue_key = id(queue)
+        self._queues[queue_key] = queue
+
+        await socket.send_str(str(queue_key))
+
+        try:
+            async for message in socket:
+                await queue.put(message.data)
+
+            await queue.put(None)
+        except AbortError:
+            await socket.close()
+        finally:
+            del self._queues[queue_key]
+
+        return socket
 
     async def _handle_get(self, request):
         try:
@@ -648,7 +684,13 @@ class Server(AbstractServer):
             payload = body.pop('payload')
             body_type = body.pop('type')
 
-            chunks = MetaGenerator(request.content)
+            # chunks = MetaGenerator(request.content)
+
+            content = await request.content.read()
+
+            queue = self._queues[int(content)]
+
+            chunks = MetaGenerator(queue)
 
             if body_type == 'result':
                 future = self._registry.retrieve(future_key)
@@ -663,6 +705,12 @@ class Server(AbstractServer):
             logging.exception('Post headers exception')
 
             return web.Response(status=400, headers=HEADERS)
+
+        response = web.StreamResponse(headers=HEADERS)  # pseudo-stream
+
+        await response.prepare(request)  # pseudo-stream
+
+        pseudo_status = b'200'  # pseudo-stream
 
         if future is None:
             try:
@@ -694,20 +742,34 @@ class Server(AbstractServer):
             except:
                 logging.exception('Post sending exception')
 
-                return web.Response(status=503, headers=HEADERS)
+                # return web.Response(status=503, headers=HEADERS)
 
-            body['payload'] = payload
+            # body['payload'] = payload
 
-            await self._accept(socket, body_type, body, stream)
+            # await self._accept(socket, body_type, body, stream)
 
-        await self._until(chunks._done)
+                pseudo_status = b'503'
 
-        return web.Response(headers=HEADERS)
+                chunks._queue.abort()
+            else:
+                body['payload'] = payload
+
+                await self._accept(socket, body_type, body, stream)
+
+        # await self._until(chunks._done)
+
+        # return web.Response(headers=HEADERS)
+
+        await response.write(pseudo_status)
+
+        await response.write_eof()
+
+        return response
 
     async def _allow(self, request):
         return web.Response(headers=HEADERS)
 
-    async def _until(self, event):
-        self._events.add(event)
-        await event.wait()
-        self._events.remove(event)
+    # async def _until(self, event):
+    #     self._events.add(event)
+    #     await event.wait()
+    #     self._events.remove(event)
