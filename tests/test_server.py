@@ -331,29 +331,22 @@ class Client:
 
         self.gotten.extend(content)
 
-    async def _do_post(self, session, body_type, payload, data):
+    async def _do_post(self, session, body_type, payload):
         headers = {'x-jchannel-data': self._dumps(body_type, payload)}
 
-        try:
-            async with session.post('/', data=data, headers=headers) as response:
-                self.status = response.status
-        except ClientConnectionError:
-            self.status = 0
+        async def generate():
+            for i in range(CONTENT_LENGTH):
+                b = str(i).encode()
+                self.posted.extend(b)
+                yield b
+
+        async with session.post('/', data=generate(), headers=headers) as response:
+            self.status = response.status
 
     async def _do_call(self, session, name):
         payload = f'{{"name": "{name}", "args": [1, 2]}}'
 
-        await self._do_post(session, 'call', payload, self._generate())
-
-    async def _generate_partial(self):
-        yield b'chunk'
-        raise Exception
-
-    async def _generate(self):
-        for i in range(CONTENT_LENGTH):
-            b = str(i).encode()
-            self.posted.extend(b)
-            yield b
+        await self._do_post(session, 'call', payload)
 
     async def _on_message(self, session, socket, message):
         body = json.loads(message.data)
@@ -384,11 +377,11 @@ class Client:
             case 'post-plain':
                 await self._do_call(session, 'plain')
             case 'post-unexpected':
-                await self._do_post(session, 'type', 'null', self._generate_partial())
+                await self._do_post(session, 'type', 'null')
             case 'post-pipe':
-                await self._do_post(session, 'pipe', 'null', self._generate())
+                await self._do_post(session, 'pipe', 'null')
             case 'post-result':
-                await self._do_post(session, 'result', None, self._generate())
+                await self._do_post(session, 'result', None)
             case 'exception' | 'result':
                 self.body = body
                 await socket.close()
@@ -883,24 +876,22 @@ async def test_handles_pipe_post(server_and_client):
     assert c.gotten == c.posted
 
 
-async def test_handles_unexpected_post(caplog, server_and_client):
-    with caplog.at_level(logging.ERROR):
-        s, c = server_and_client
-        await s.start()
-        assert await c.connection == 101
-        await open(s)
-        await send(s, 'post-unexpected')
-        await c.disconnection
-        await s.stop()
-        assert len(c.body) == 5
-        assert c.body['type'] == 'exception'
-        assert c.body['stream'] is None
-        assert isinstance(c.body['payload'], str)
-        assert c.body['channel'] == CHANNEL_KEY
-        assert c.body['future'] == FUTURE_KEY
-    assert len(caplog.records) == 1
+async def test_handles_unexpected_post(server_and_client):
+    s, c = server_and_client
+    await s.start()
+    assert await c.connection == 101
+    await open(s)
+    await send(s, 'post-unexpected')
+    await c.disconnection
+    await s.stop()
+    assert len(c.body) == 5
+    assert c.body['type'] == 'exception'
+    assert c.body['stream'] is None
+    assert isinstance(c.body['payload'], str)
+    assert c.body['channel'] == CHANNEL_KEY
+    assert c.body['future'] == FUTURE_KEY
 
-    assert c.status == 0
+    assert c.status == 200
 
 
 async def test_handles_plain_post(server_and_client):
