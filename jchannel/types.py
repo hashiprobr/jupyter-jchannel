@@ -89,12 +89,6 @@ class StreamQueue(asyncio.Queue):
         if self.full():
             self.get_nowait()
 
-    async def get(self):
-        if self._aborted:
-            return None
-
-        return await super().get()
-
     async def put(self, item):
         if self._aborted:
             raise AbortError
