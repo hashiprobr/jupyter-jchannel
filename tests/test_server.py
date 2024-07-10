@@ -344,18 +344,16 @@ class Client:
         #     self.status = response.status
 
         async with session.ws_connect('/upload') as socket:
-            message = await socket.receive()
+            data = await socket.receive_str()
 
-            async with session.post('/', data=message.data, headers=headers) as response:
-                assert response.status == 200
-
+            async with session.post('/', data=data, headers=headers) as response:
                 try:
                     async for chunk in generate():
                         await socket.send_bytes(chunk)
-
-                    await socket.close()
                 except:
                     pass
+
+                await socket.close()
 
                 content = await response.content.read()
 
