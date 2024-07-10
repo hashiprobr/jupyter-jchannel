@@ -186,6 +186,7 @@ async def send(s, body_type, input=None, stream=None, timeout=3):
 
 
 async def test_gets_parameters(s):
+    assert s.high_water_mark == 1
     assert s.send_timeout == 3
     assert s.receive_timeout is None
     assert s.max_msg_size == 4194304
@@ -194,11 +195,13 @@ async def test_gets_parameters(s):
 
 
 async def test_sets_parameters(s):
+    s.high_water_mark = None
     s.send_timeout = None
     s.receive_timeout = 0
     s.max_msg_size = None
     s.keepalive_timeout = None
     s.shutdown_timeout = None
+    assert s.high_water_mark is None
     assert s.send_timeout is None
     assert s.receive_timeout == 0
     assert s.max_msg_size is None
