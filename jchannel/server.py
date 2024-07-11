@@ -695,9 +695,9 @@ class Server(AbstractServer):
 
             if body_type == 'result':
                 future = self._registry.retrieve(future_key)
-            else:
-                future = None
 
+                channel = None
+            else:
                 input = json.loads(payload)
 
                 channel = self._channels[channel_key]
@@ -716,7 +716,9 @@ class Server(AbstractServer):
         queue = self._queues[int(content)]
         chunks = MetaGenerator(queue)
 
-        if future is None:
+        if channel is None:
+            future.set_result(chunks)
+        else:
             try:
                 match body_type:
                     case 'call':
@@ -759,8 +761,6 @@ class Server(AbstractServer):
                 body['payload'] = payload
 
                 await self._accept(socket, body_type, body, stream)
-        else:
-            future.set_result(chunks)
 
         # await self._until(chunks._done)
 
