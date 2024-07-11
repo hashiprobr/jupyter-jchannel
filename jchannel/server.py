@@ -693,17 +693,8 @@ class Server(AbstractServer):
             payload = body.pop('payload')
             body_type = body.pop('type')
 
-            # chunks = MetaGenerator(request.content)
-
-            content = await request.content.read()
-
-            queue = self._queues[int(content)]
-
-            chunks = MetaGenerator(queue)
-
             if body_type == 'result':
                 future = self._registry.retrieve(future_key)
-                future.set_result(chunks)
             else:
                 future = None
 
@@ -715,11 +706,15 @@ class Server(AbstractServer):
 
             return web.Response(status=400, headers=HEADERS)
 
-        response = web.StreamResponse(headers=HEADERS)  # pseudo-stream
+        # chunks = MetaGenerator(request.content)
 
-        await response.prepare(request)  # pseudo-stream
+        response = web.StreamResponse(headers=HEADERS)
+        await response.prepare(request)
+        pseudo_status = b'200'
 
-        pseudo_status = b'200'  # pseudo-stream
+        content = await request.content.read()
+        queue = self._queues[int(content)]
+        chunks = MetaGenerator(queue)
 
         if future is None:
             try:
@@ -764,13 +759,14 @@ class Server(AbstractServer):
                 body['payload'] = payload
 
                 await self._accept(socket, body_type, body, stream)
+        else:
+            future.set_result(chunks)
 
         # await self._until(chunks._done)
 
         # return web.Response(headers=HEADERS)
 
         await response.write(pseudo_status)
-
         await response.write_eof()
 
         return response
