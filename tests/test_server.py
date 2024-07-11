@@ -830,6 +830,7 @@ async def test_receives_unexpected_body_type(server_and_client):
 async def test_handles_partial_get(caplog, server_and_client):
     async def generate_partial():
         yield b'chunk'
+        yield b''
         raise Exception
 
     with caplog.at_level(logging.ERROR):
