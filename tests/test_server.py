@@ -334,6 +334,18 @@ class Client:
 
         self.gotten.extend(content)
 
+    async def _do_upload(self, socket, stream):
+        try:
+            async for chunk in stream:
+                try:
+                    await socket.send_bytes(chunk)
+                except:
+                    return
+        except:
+            pass
+
+        await socket.close()
+
     async def _do_post(self, session, body_type, payload):
         headers = {'x-jchannel-data': self._dumps(body_type, payload)}
 
@@ -350,13 +362,7 @@ class Client:
             data = await socket.receive_str()
 
             async with session.post('/', data=data, headers=headers) as response:
-                try:
-                    async for chunk in generate():
-                        await socket.send_bytes(chunk)
-                except:
-                    pass
-
-                await socket.close()
+                await self._do_upload(socket, generate())
 
                 content = await response.content.read()
 
