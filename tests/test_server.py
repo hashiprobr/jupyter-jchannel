@@ -930,8 +930,7 @@ async def test_handles_plain_post(server_and_client):
     arg = 0
 
     for i in range(CONTENT_LENGTH):
-        s = str(i)
-        arg += len(s)
+        arg += len(str(i))
 
     s, c = server_and_client
     await s.start()
