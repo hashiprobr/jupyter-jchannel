@@ -927,6 +927,12 @@ async def test_handles_unexpected_post(server_and_client):
 
 
 async def test_handles_plain_post(server_and_client):
+    arg = 0
+
+    for i in range(CONTENT_LENGTH):
+        s = str(i)
+        arg += len(s)
+
     s, c = server_and_client
     await s.start()
     assert await c.connection == 101
@@ -937,7 +943,7 @@ async def test_handles_plain_post(server_and_client):
     assert len(c.body) == 5
     assert c.body['type'] == 'result'
     assert c.body['stream'] is None
-    assert c.body['payload'] == '[1, 2, 2986]'
+    assert c.body['payload'] == f'[1, 2, {arg}]'
     assert c.body['channel'] == CHANNEL_KEY
     assert c.body['future'] == FUTURE_KEY
 
