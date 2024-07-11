@@ -648,7 +648,12 @@ class Server(AbstractServer):
 
         try:
             async for message in socket:
-                await queue.put(message.data)
+                chunk = message.data
+
+                if chunk:
+                    await queue.put(chunk)
+                else:
+                    await socket.send_bytes(chunk)
 
             await queue.put(None)
         except AbortError:

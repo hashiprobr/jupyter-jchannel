@@ -337,12 +337,19 @@ class Client:
     async def _do_upload(self, socket, stream):
         try:
             async for chunk in stream:
-                try:
-                    await socket.send_bytes(chunk)
-                except:
-                    return
+                if chunk:
+                    try:
+                        await socket.send_bytes(chunk)
+                    except:
+                        return
         except:
             pass
+
+        try:
+            await socket.send_bytes(b'')
+            await socket.receive_bytes()
+        except:
+            return
 
         await socket.close()
 
