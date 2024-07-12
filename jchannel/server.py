@@ -237,7 +237,7 @@ class Server(AbstractServer):
         Under normal circumstances, this method should not be called. It should
         only be called for debugging or testing purposes.
         '''
-        frontend.run(f"jchannel.start('{self._url}')")
+        frontend.run(f"jchannel.start('{self._url}', {self._max_msg_size})")
 
     def stop_client(self):
         '''

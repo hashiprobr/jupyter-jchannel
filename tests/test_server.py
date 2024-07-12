@@ -170,7 +170,7 @@ async def test_does_not_instantiate_with_non_positive_heartbeat():
 def s(mocker):
     def side_effect(code):
         assert code in [
-            "jchannel.start('http://localhost:8889')",
+            "jchannel.start('http://localhost:8889', 4194304)",
             "jchannel.stop('http://localhost:8889')",
             "jchannel._unload('http://localhost:8889')",
         ]
@@ -493,7 +493,7 @@ def server_and_client(mocker, future):
     c = Client()
 
     def side_effect(code):
-        if code == "jchannel.start('http://localhost:8889')":
+        if code == "jchannel.start('http://localhost:8889', 4194304)":
             c.start()
         else:
             assert code == "jchannel._unload('http://localhost:8889')"
