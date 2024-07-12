@@ -12,4 +12,5 @@
    .. automethod:: open
    .. automethod:: close
    .. automethod:: echo
+   .. automethod:: pipe
    .. automethod:: call
