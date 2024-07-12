@@ -194,12 +194,13 @@ class MetaGenerator:
             buffer = memoryview(buffer)
             yield bytes(buffer[:size])
 
-    async def by_separator(self, separator=b'\n'):
+    async def by_separator(self, separator='\n'):
         '''
         Provides chunks according to a separator.
 
-        :param separator: The split separator.
-        :type separator: bytes
+        :param separator: The split separator. If a string, it is encoded as
+            UTF-8.
+        :type separator: str or bytes
 
         :return: An async generator of stream chunks.
         :rtype: async_generator[bytes]
