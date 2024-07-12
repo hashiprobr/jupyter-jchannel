@@ -334,7 +334,7 @@ class Client:
 
         self.gotten.extend(content)
 
-    async def _do_upload(self, socket, stream):
+    async def _do_upload(self, socket, stream):  # pseudo-stream
         try:
             async for chunk in stream:
                 if chunk:

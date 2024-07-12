@@ -314,7 +314,7 @@ class Server(AbstractServer):
 
             app.add_routes([
                 web.get('/socket', self._handle_socket),
-                web.get('/upload', self._handle_upload),  # pseudo-stream
+                web.get('/upload', self._handle_upload),
                 web.get('/', self._handle_get),
                 web.post('/', self._handle_post),
                 web.options('/', self._allow),
