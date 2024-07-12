@@ -347,7 +347,7 @@ class Client:
 
         try:
             await socket.send_bytes(b'')
-            await socket.receive_bytes()
+            await socket.receive()
         except:
             return
 
@@ -366,9 +366,9 @@ class Client:
         #     self.status = response.status
 
         async with session.ws_connect('/upload') as socket:
-            data = await socket.receive_str()
+            body = await socket.receive_str()
 
-            async with session.post('/', data=data, headers=headers) as response:
+            async with session.post('/', data=body, headers=headers) as response:
                 await self._do_upload(socket, generate())
 
                 content = await response.content.read()
