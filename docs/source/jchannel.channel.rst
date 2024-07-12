@@ -14,3 +14,4 @@
    .. automethod:: echo
    .. automethod:: pipe
    .. automethod:: call
+   .. automethod:: call_with_stream
