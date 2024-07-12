@@ -628,7 +628,7 @@ class Server(AbstractServer):
 
         return socket
 
-    async def _handle_upload(self, request):
+    async def _handle_upload(self, request):  # pseudo-stream
         socket = web.WebSocketResponse(
             receive_timeout=self._receive_timeout,
             heartbeat=self._heartbeat,
