@@ -141,7 +141,7 @@ class Server(AbstractServer):
         self._cleaned.set()
 
         # None: user stoppage
-        # web.WebSocketResponse: client connection
+        # Socket: client connection
         self._connection = None
 
         # False: user stoppage
@@ -622,8 +622,6 @@ class Server(AbstractServer):
             for queue in self._queues.values():
                 queue.abort()
 
-            self._queues.clear()
-
             self._streams.clear()
 
             self._registry.clear()
@@ -713,13 +711,13 @@ class Server(AbstractServer):
 
         # chunks = MetaGenerator(request.content)
 
-        response = web.StreamResponse(headers=HEADERS)
-        await response.prepare(request)
-        pseudo_status = b'200'
-
         content = await request.content.read()
         queue = self._queues[int(content)]
         chunks = MetaGenerator(queue)
+
+        response = web.StreamResponse(headers=HEADERS)
+        await response.prepare(request)
+        pseudo_status = b'200'
 
         if channel is None:
             future.set_result(chunks)
