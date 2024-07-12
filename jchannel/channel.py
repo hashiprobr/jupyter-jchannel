@@ -141,7 +141,9 @@ class Channel:
 
     def call_with_stream(self, name, stream, *args, timeout=3):
         '''
-        Makes a call to the client with a byte stream as its first argument.
+        Makes a call to the client with a byte stream as its first argument. The
+        method receives it as a `client MetaGenerator
+        <https://hashiprobr.github.io/jupyter-jchannel-client/MetaGenerator.html>`_.
 
         :param name: The name of a client handler method.
         :type name: str
