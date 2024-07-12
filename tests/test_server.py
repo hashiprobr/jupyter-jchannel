@@ -271,7 +271,7 @@ class MockChannel:
             raise Exception
         if name == 'octet':
             async def generate():
-                async for chunk in args[-1].by_limit():
+                async for chunk in args[0].by_limit():
                     yield chunk
             return generate()
         if name == 'plain':
@@ -282,9 +282,9 @@ class MockChannel:
 
     async def _consume(self, args):
         arg = 0
-        async for chunk in args[-1].by_separator():
+        async for chunk in args[0].by_separator():
             arg += len(chunk)
-        args[-1] = arg
+        args[0] = arg
         return args
 
     async def _resolve(self, args):
@@ -943,7 +943,7 @@ async def test_handles_plain_post(server_and_client):
     assert len(c.body) == 5
     assert c.body['type'] == 'result'
     assert c.body['stream'] is None
-    assert c.body['payload'] == f'[1, 2, {arg}]'
+    assert c.body['payload'] == f'[{arg}, 1, 2]'
     assert c.body['channel'] == CHANNEL_KEY
     assert c.body['future'] == FUTURE_KEY
 

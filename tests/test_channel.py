@@ -149,6 +149,19 @@ async def test_calls_twice(caplog, server, c):
     assert len(caplog.records) == 1
 
 
+async def test_calls_with_stream(c):
+    stream = object()
+    output = ['call', id(c), {'name': 'name', 'args': (1, 2)}, stream, 3]
+    assert await c.call_with_stream('name', stream, 1, 2) == output
+
+
+async def test_does_not_call_with_stream_twice(server, c):
+    server._closed = True
+    stream = object()
+    with pytest.raises(StateError):
+        await c.call_with_stream('name', stream, 1, 2)
+
+
 async def test_destroys_and_does_not_call_and_does_not_destroy(server, c):
     c.destroy()
     assert id(c) not in server._channels

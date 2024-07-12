@@ -486,7 +486,7 @@ class Server(AbstractServer):
             raise TypeError('Args must be a list')
 
         if chunks is not None:
-            args.append(chunks)
+            args.insert(0, chunks)
 
         output = channel._handle(name, args)
         if isawaitable(output):

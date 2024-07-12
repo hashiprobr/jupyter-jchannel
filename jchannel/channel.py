@@ -81,7 +81,7 @@ class Channel:
 
     def echo(self, *args, timeout=3):
         '''
-        Sends arguments to the server and receives them back.
+        Sends arguments to the client and receives them back.
 
         Under normal circumstances, this method should not be called. It should
         only be called for debugging or testing purposes.
@@ -102,7 +102,7 @@ class Channel:
 
     def pipe(self, stream, timeout=3):
         '''
-        Sends a byte stream to the server and receives it back.
+        Sends a byte stream to the client and receives it back.
 
         Under normal circumstances, this method should not be called. It should
         only be called for debugging or testing purposes.
@@ -123,7 +123,7 @@ class Channel:
 
     def call(self, name, *args, timeout=3):
         '''
-        Makes a call to the server.
+        Makes a call to the client.
 
         :param name: The name of a client handler method.
         :type name: str
@@ -138,6 +138,27 @@ class Channel:
         :rtype: asyncio.Task
         '''
         return asyncio.create_task(self._call(name, args, None, timeout))
+
+    def call_with_stream(self, name, stream, *args, timeout=3):
+        '''
+        Makes a call to the client with a byte stream as its first argument.
+
+        :param name: The name of a client handler method.
+        :type name: str
+
+        :param stream: The first argument of the call, an async iterable of
+            bytes-like objects.
+
+        :param args: The other arguments of the call.
+
+        :param timeout: The request timeout in seconds.
+        :type timeout: int
+
+        :return: A task that can be awaited to obtain the return value of the
+            method.
+        :rtype: asyncio.Task
+        '''
+        return asyncio.create_task(self._call(name, args, stream, timeout))
 
     @property
     def context_timeout(self):
