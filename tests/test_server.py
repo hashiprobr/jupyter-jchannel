@@ -185,7 +185,7 @@ async def send(s, body_type, input=None, stream=None, timeout=3):
     await s._send(body_type, CHANNEL_KEY, input, stream, timeout)
 
 
-async def test_gets_parameters(s):
+async def test_gets_properties(s):
     assert s.high_water_mark == 1
     assert s.send_timeout == 3
     assert s.receive_timeout is None
@@ -194,7 +194,7 @@ async def test_gets_parameters(s):
     assert s.shutdown_timeout == 60
 
 
-async def test_sets_parameters(s):
+async def test_sets_properties(s):
     s.high_water_mark = None
     s.send_timeout = None
     s.receive_timeout = 0

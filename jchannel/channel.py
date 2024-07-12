@@ -21,7 +21,7 @@ class Channel:
         '''
 
         if not isinstance(server, AbstractServer):
-            raise TypeError('First parameter must be a jchannel server')
+            raise TypeError('First argument must be a jchannel server')
 
         server._channels[id(self)] = self
 
@@ -137,7 +137,7 @@ class Channel:
             method.
         :rtype: asyncio.Task
         '''
-        return asyncio.create_task(self._call(name, args, timeout))
+        return asyncio.create_task(self._call(name, args, None, timeout))
 
     @property
     def context_timeout(self):
@@ -199,8 +199,8 @@ class Channel:
     async def _pipe(self, stream, timeout):
         return await self._send('pipe', None, stream, timeout)
 
-    async def _call(self, name, args, timeout):
-        return await self._send('call', {'name': name, 'args': args}, None, timeout)
+    async def _call(self, name, args, stream, timeout):
+        return await self._send('call', {'name': name, 'args': args}, stream, timeout)
 
     async def _send(self, body_type, input, stream, timeout):
         if self._server is None:
