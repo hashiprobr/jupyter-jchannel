@@ -66,8 +66,7 @@ class Server(AbstractServer):
 
         :param url: The URL accessed by the client. If ``None``, it is simply
             ``f'http://{host}:{port}'``. If not ``None``, it is particularly
-            useful when the kernel is behind a proxy like `ngrok
-            <https://ngrok.com/>`_.
+            useful when the kernel is behind a proxy.
         :type url: str or None
 
         :param heartbeat: The WebSocket heartbeat interval in seconds.
