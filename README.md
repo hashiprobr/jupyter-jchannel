@@ -73,7 +73,7 @@ class Example:
 The `channel` objects have client representations that make these calls equally
 as simple.
 
-![](docs/source/img/console_capture.png)
+![](docs/source/img/console_capture_1.png)
 
 ### Main features
 
@@ -95,7 +95,7 @@ as simple.
 ### Getting started
 
 The [tutorial for local
-notebooks](https://github.com/hashiprobr/jupyter-jchannel/blob/main/examples/local-kernel.ipynb)
+notebooks](https://github.com/hashiprobr/jupyter-jchannel/blob/main/examples/local.ipynb)
 should be enough to introduce the basic usage.
 
 Remote notebooks require tunneling. Tutorials in Binder and Colab are available
