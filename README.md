@@ -23,14 +23,14 @@ string methods to provide indentation utilities (this is admittedly useless, but
 indulge me for the sake of the example).
 
 ``` js
-{
+example = {
     indentLeft(line, count) {
         return line.padStart(line.length + count);
     },
     indentRight(line, count) {
         return line.padEnd(line.length + count);
     },
-}
+};
 ```
 
 The jupyter-jchannel framework allows you to create `channel` objects that make
