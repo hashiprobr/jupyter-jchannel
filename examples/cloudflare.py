@@ -3,7 +3,7 @@ import shlex
 
 from time import sleep
 from signal import SIGINT
-from subprocess import Popen, PIPE, STDOUT
+from subprocess import Popen, PIPE
 
 
 PATTERN = re.compile(r'(https://.+\.trycloudflare\.com)')
@@ -20,9 +20,9 @@ class Tunnel:
         self.egress()
 
         args = shlex.split(f'{self.path} --url http://{host}:{port}')
-        self.process = Popen(args, stdin=PIPE, stdout=PIPE, stderr=STDOUT)
+        self.process = Popen(args, stderr=PIPE)
 
-        for line in self.process.stdout:
+        for line in self.process.stderr:
             match = PATTERN.search(line.decode())
 
             if match:
