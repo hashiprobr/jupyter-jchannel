@@ -46,17 +46,17 @@ These objects perform asynchronous non-blocking communication based on
 [task](https://docs.python.org/3/library/asyncio-task.html#asyncio.Task) that
 can be awaited to retrieve the result whenever you want.
 
-> ![](docs/source/img/notebook_capture_1.png)
+![](docs/source/img/notebook_capture_1.png)
 
 In particular, awaiting immediately ensures synchronous execution, without the
 need for sleeping and/or polling.
 
-> ![](docs/source/img/notebook_capture_2.png)
+![](docs/source/img/notebook_capture_2.png)
 
 Furthermore, if the frontend throws a JavaScript exception, the task wraps it
 into a Python exception.
 
-> ![](docs/source/img/notebook_capture_3.png)
+![](docs/source/img/notebook_capture_3.png)
 
 Likewise, suppose the kernel provides an object whose methods you want to call
 from the client.
@@ -73,7 +73,7 @@ class Example:
 The `channel` objects have client representations that make these calls equally
 as simple.
 
-> ![](docs/source/img/console_capture.png)
+![](docs/source/img/console_capture.png)
 
 ### Main features
 
