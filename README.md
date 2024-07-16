@@ -27,7 +27,6 @@ indulge me for the sake of the example).
     indentLeft(line, count) {
         return line.padStart(line.length + count);
     },
-
     indentRight(line, count) {
         return line.padEnd(line.length + count);
     },
