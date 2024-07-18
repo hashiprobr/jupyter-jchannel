@@ -45,17 +45,17 @@ These objects perform asynchronous non-blocking communication based on
 [task](https://docs.python.org/3/library/asyncio-task.html#asyncio.Task) that
 can be awaited to retrieve the result whenever you want.
 
-![](https://raw.githubusercontent.com/hashiprobr/jupyter-jchannel/main/docs/source/img/notebook_capture_1.png)
+![](https://raw.githubusercontent.com/hashiprobr/jupyter-jchannel/main/docs/images/notebook_capture_1.png)
 
 In particular, awaiting immediately ensures synchronous execution, without the
 need for sleeping and/or polling.
 
-![](https://raw.githubusercontent.com/hashiprobr/jupyter-jchannel/main/docs/source/img/notebook_capture_2.png)
+![](https://raw.githubusercontent.com/hashiprobr/jupyter-jchannel/main/docs/images/notebook_capture_2.png)
 
 Furthermore, if the frontend throws a JavaScript exception, the task wraps it
 into a Python exception.
 
-![](https://raw.githubusercontent.com/hashiprobr/jupyter-jchannel/main/docs/source/img/notebook_capture_3.png)
+![](https://raw.githubusercontent.com/hashiprobr/jupyter-jchannel/main/docs/images/notebook_capture_3.png)
 
 Likewise, suppose the kernel provides an object whose methods you want to call
 from the client.
@@ -72,7 +72,7 @@ class Example:
 The `channel` objects have client representations that make these calls equally
 as simple.
 
-![](https://raw.githubusercontent.com/hashiprobr/jupyter-jchannel/main/docs/source/img/console_capture_1.png)
+![](https://raw.githubusercontent.com/hashiprobr/jupyter-jchannel/main/docs/images/console_capture_1.png)
 
 ### Main features
 
@@ -155,7 +155,7 @@ connected to multiple clients. The kernel connects to a server via
 WebSockets. This decoupling is what makes extensions like [Jupyter Real-Time
 Collaboration](https://github.com/jupyterlab/jupyter-collaboration) possible.
 
-> ![](https://raw.githubusercontent.com/hashiprobr/jupyter-jchannel/main/docs/source/img/notebook_components_2.drawio.png)
+> ![](https://raw.githubusercontent.com/hashiprobr/jupyter-jchannel/main/docs/images/notebook_components_2.drawio.png)
 >
 > *Source: adapted from [The Jupyter Notebook Interface](https://docs.jupyter.org/en/latest/projects/architecture/content-architecture.html#the-jupyter-notebook-interface)*
 
@@ -164,7 +164,7 @@ establishing a direct connection between the kernel and a single client, on a
 "first come, only served" basis. In other words, it explicitly assumes that the
 user is not interested in synchronizing multiple clients.
 
-> ![](https://raw.githubusercontent.com/hashiprobr/jupyter-jchannel/main/docs/source/img/notebook_components_3.drawio.png)
+> ![](https://raw.githubusercontent.com/hashiprobr/jupyter-jchannel/main/docs/images/notebook_components_3.drawio.png)
 
 
 Why not?
