@@ -83,11 +83,6 @@ async def test_handles_with_exception(c):
         c._handle('name', [1, 2])
 
 
-async def test_does_not_handle_without_handler(c):
-    with pytest.raises(ValueError):
-        c._handle('name', [1, 2])
-
-
 async def test_does_not_handle_without_handler_attribute(c):
     c.handler = object()
     with pytest.raises(AttributeError):
@@ -113,10 +108,10 @@ async def test_closes(c):
     assert await c.close() == output
 
 
-async def test_opens_does_not_destroy_and_closes(c):
-    with pytest.raises(StateError):
+async def test_opens_does_not_handle_and_closes(c):
+    with pytest.raises(ValueError):
         async with c as channel:
-            await channel.destroy()
+            channel._handle('name', [1, 2])
 
 
 async def test_echoes(c):
@@ -169,12 +164,3 @@ async def test_does_not_call_with_stream_twice(server, c):
     stream = object()
     with pytest.raises(StateError):
         await c.call_with_stream('name', stream, 1, 2)
-
-
-async def test_destroys_and_does_not_call_and_does_not_destroy(server, c):
-    c.destroy()
-    assert id(c) not in server._channels
-    with pytest.raises(StateError):
-        await c.call('name', 1, 2)
-    with pytest.raises(StateError):
-        c.destroy()

@@ -8,7 +8,6 @@
 
    .. autoproperty:: context_timeout
    .. autoproperty:: handler
-   .. automethod:: destroy
    .. automethod:: open
    .. automethod:: close
    .. automethod:: echo

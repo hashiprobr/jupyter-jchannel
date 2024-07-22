@@ -270,11 +270,6 @@ class MockChannel:
         server._channels[CHANNEL_KEY] = self
         assert code == '() => true'
 
-        def destroy():
-            del server._channels[CHANNEL_KEY]
-
-        self.destroy = destroy
-
     def _handle(self, name, args):
         if name == 'error':
             raise Exception
@@ -300,8 +295,7 @@ class MockChannel:
         return args
 
     async def _open(self, timeout):
-        if not timeout:
-            raise Exception
+        pass
 
 
 class Client:
@@ -514,8 +508,7 @@ def server_and_client(mocker, future):
 
 
 async def open(s, timeout=3):
-    channel = await s.open('() => true', timeout)
-    assert isinstance(channel, MockChannel)
+    return await s.open('() => true', timeout)
 
 
 async def test_connects_and_stops_twice(server_and_client):
@@ -689,22 +682,11 @@ async def test_receives_result(future, server_and_client):
     assert output is True
 
 
-async def test_does_not_open(server_and_client):
-    s, c = server_and_client
-    await s.start()
-    assert await c.connection == 101
-    with pytest.raises(Exception):
-        await open(s, 0)
-    await s.stop()
-    await c.disconnection
-    assert CHANNEL_KEY not in s._channels
-
-
 async def test_echoes(server_and_client):
     s, c = server_and_client
     await s.start()
     assert await c.connection == 101
-    await open(s)
+    channel = await open(s)
     await send(s, 'echo', 3)
     await c.disconnection
     await s.stop()
@@ -720,7 +702,7 @@ async def test_calls(server_and_client):
     s, c = server_and_client
     await s.start()
     assert await c.connection == 101
-    await open(s)
+    channel = await open(s)
     await send(s, 'call', {'name': 'name', 'args': [1, 2]})
     await c.disconnection
     await s.stop()
@@ -736,7 +718,7 @@ async def test_calls_async(server_and_client):
     s, c = server_and_client
     await s.start()
     assert await c.connection == 101
-    await open(s)
+    channel = await open(s)
     await send(s, 'call', {'name': 'async', 'args': [1, 2]})
     await c.disconnection
     await s.stop()
@@ -753,7 +735,7 @@ async def test_does_not_call_error(caplog, server_and_client):
         s, c = server_and_client
         await s.start()
         assert await c.connection == 101
-        await open(s)
+        channel = await open(s)
         await send(s, 'call', {'name': 'error', 'args': [1, 2]})
         await c.disconnection
         await s.stop()
@@ -771,7 +753,7 @@ async def test_does_not_call_with_empty_input(caplog, server_and_client):
         s, c = server_and_client
         await s.start()
         assert await c.connection == 101
-        await open(s)
+        channel = await open(s)
         await send(s, 'call', {})
         await c.disconnection
         await s.stop()
@@ -789,7 +771,7 @@ async def test_does_not_call_with_non_string_name(caplog, server_and_client):
         s, c = server_and_client
         await s.start()
         assert await c.connection == 101
-        await open(s)
+        channel = await open(s)
         await send(s, 'call', {'name': True, 'args': [1, 2]})
         await c.disconnection
         await s.stop()
@@ -807,7 +789,7 @@ async def test_does_not_call_with_non_list_args(caplog, server_and_client):
         s, c = server_and_client
         await s.start()
         assert await c.connection == 101
-        await open(s)
+        channel = await open(s)
         await send(s, 'call', {'name': 'name', 'args': True})
         await c.disconnection
         await s.stop()
@@ -824,7 +806,7 @@ async def test_receives_unexpected_body_type(server_and_client):
     s, c = server_and_client
     await s.start()
     assert await c.connection == 101
-    await open(s)
+    channel = await open(s)
     await send(s, 'type')
     await c.disconnection
     await s.stop()
@@ -903,7 +885,7 @@ async def test_handles_pipe_post(server_and_client):
     s, c = server_and_client
     await s.start()
     assert await c.connection == 101
-    await open(s)
+    channel = await open(s)
     await send(s, 'post-pipe')
     await c.disconnection
     await s.stop()
@@ -922,7 +904,7 @@ async def test_handles_unexpected_post(server_and_client):
     s, c = server_and_client
     await s.start()
     assert await c.connection == 101
-    await open(s)
+    channel = await open(s)
     await send(s, 'post-unexpected')
     await c.disconnection
     await s.stop()
@@ -945,7 +927,7 @@ async def test_handles_plain_post(server_and_client):
     s, c = server_and_client
     await s.start()
     assert await c.connection == 101
-    await open(s)
+    channel = await open(s)
     await send(s, 'post-plain')
     await c.disconnection
     await s.stop()
@@ -963,7 +945,7 @@ async def test_handles_octet_post(server_and_client):
     s, c = server_and_client
     await s.start()
     assert await c.connection == 101
-    await open(s)
+    channel = await open(s)
     await send(s, 'post-octet')
     await c.disconnection
     await s.stop()
@@ -983,7 +965,7 @@ async def test_handles_partial_octet_post(server_and_client):
     c.gotten = None
     await s.start()
     assert await c.connection == 101
-    await open(s)
+    channel = await open(s)
     await send(s, 'post-octet')
     await c.disconnection
     await s.stop()
@@ -1003,7 +985,7 @@ async def test_does_not_handle_octet_post(caplog, server_and_client):
         s.send_timeout = 0
         await s.start()
         assert await c.connection == 101
-        await open(s)
+        channel = await open(s)
         await send(s, 'post-octet')
         await send(s, 'socket-close')
         await c.disconnection
@@ -1018,7 +1000,7 @@ async def test_does_not_handle_error_post(caplog, server_and_client):
         s, c = server_and_client
         await s.start()
         assert await c.connection == 101
-        await open(s)
+        channel = await open(s)
         await send(s, 'post-error')
         await c.disconnection
         await s.stop()

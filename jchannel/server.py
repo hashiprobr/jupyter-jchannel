@@ -288,11 +288,7 @@ class Server(AbstractServer):
         :rtype: jchannel.channel.Channel
         '''
         channel = Channel(self, code)
-        try:
-            await channel._open(timeout)
-        except:
-            channel.destroy()
-            raise
+        await channel._open(timeout)
         return channel
 
     async def __aenter__(self):

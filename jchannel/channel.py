@@ -36,32 +36,9 @@ class Channel:
 
         self._server = server
         self._code = code
-        self._context_timeout = 3
         self._handler = None
-        self._use = False
 
-    def destroy(self):
-        '''
-        Destroys this channel.
-
-        An open channel cannot be destroyed. It must be closed first.
-
-        A destroyed channel cannot be used for anything. There is no reason to
-        keep references to it.
-
-        :raise StateError: If this channel is already destroyed.
-        :raise StateError: If this channel is in use.
-        '''
-
-        if self._server is None:
-            raise StateError('Channel already destroyed')
-
-        if self._use:
-            raise StateError('Channel in use')
-
-        del self._server._channels[id(self)]
-
-        self._server = None
+        self._context_timeout = 3
 
     def open(self, timeout=3):
         '''
@@ -216,14 +193,10 @@ class Channel:
         return False
 
     async def _open(self, timeout):
-        result = await self._send('open', self._code, None, timeout)
-        self._use = True
-        return result
+        return await self._send('open', self._code, None, timeout)
 
     async def _close(self, timeout):
-        result = await self._send('close', None, None, timeout)
-        self._use = False
-        return result
+        return await self._send('close', None, None, timeout)
 
     async def _echo(self, args, timeout):
         return await self._send('echo', args, None, timeout)
@@ -235,9 +208,6 @@ class Channel:
         return await self._send('call', {'name': name, 'args': args}, stream, timeout)
 
     async def _send(self, body_type, input, stream, timeout):
-        if self._server is None:
-            raise StateError('Channel is destroyed')
-
         future = await self._server._send(body_type, id(self), input, stream, timeout)
 
         try:

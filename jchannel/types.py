@@ -10,6 +10,7 @@
 import math
 import asyncio
 
+from weakref import WeakValueDictionary
 from abc import ABC, abstractmethod
 
 
@@ -282,7 +283,7 @@ class MetaGenerator:
 
 class AbstractServer(ABC):
     def __init__(self):
-        self._channels = {}
+        self._channels = WeakValueDictionary()
 
     @abstractmethod
     async def _send(self, body_type, channel_key, input, stream, timeout):
