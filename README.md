@@ -97,7 +97,7 @@ The [tutorial for local
 notebooks](https://github.com/hashiprobr/jupyter-jchannel/blob/main/examples/local.ipynb)
 should be enough to introduce the basic usage.
 
-Remote notebooks require tunneling. Tutorials in Binder and Colab are available
+Remote notebooks require tunneling. Tutorials for Binder and Colab are available
 below.
 
 [![Launch in Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/hashiprobr/jupyter-jchannel/main?labpath=examples%2Fbinder.ipynb)
