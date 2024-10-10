@@ -11,7 +11,7 @@ import pytest
 
 from jchannel.types import MetaGenerator, StreamQueue
 
-pytestmark = pytest.mark.asyncio(loop_scope='module')
+pytestmark = pytest.mark.asyncio()
 
 
 def create_chunks(input):

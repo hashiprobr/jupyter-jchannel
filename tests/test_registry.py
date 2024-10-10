@@ -12,7 +12,7 @@ import pytest
 
 from jchannel.registry import Registry
 
-pytestmark = pytest.mark.asyncio(loop_scope='module')
+pytestmark = pytest.mark.asyncio()
 
 
 @pytest.fixture
