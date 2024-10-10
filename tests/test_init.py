@@ -12,7 +12,7 @@ import jchannel
 
 from unittest.mock import AsyncMock
 
-pytestmark = pytest.mark.asyncio(scope='module')
+pytestmark = pytest.mark.asyncio(loop_scope='module')
 
 
 HOST = '127.0.0.1'

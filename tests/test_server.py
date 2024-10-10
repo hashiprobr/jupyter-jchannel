@@ -17,7 +17,7 @@ from aiohttp import ClientSession, WSServerHandshakeError
 from jchannel.types import FrontendError, StateError
 from jchannel.server import Server, DebugScenario
 
-pytestmark = pytest.mark.asyncio(scope='module')
+pytestmark = pytest.mark.asyncio(loop_scope='module')
 
 
 HOST = ' \t\n127.0.0.1 \t\n'
