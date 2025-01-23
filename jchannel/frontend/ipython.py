@@ -22,10 +22,17 @@ SHEET = '''
 class IPythonFrontend(AbstractFrontend):
     def __init__(self):
         super().__init__()
+        self.hidden = True
         self.output = Output(_view_count=0)
+        self.output.observe(self._handle, '_view_count')
+
+    def _handle(self, change):
+        if change['new'] == 0:
+            self.hidden = True
 
     def _run(self, code):
-        if self.output._view_count == 0:
+        if self.hidden:
+            self.hidden = False
             style = HTML(f'<style>{SHEET}</style>')
             display(style)
             display(self.output)

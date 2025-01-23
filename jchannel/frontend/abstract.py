@@ -26,10 +26,8 @@ class AbstractFrontend(ABC):
 
     def run(self, code):
         self._run(f'''
-            new Promise((resolve, reject) => {{
-                if (self.jchannel) {{
-                    resolve();
-                }} else {{
+            if (!self.jchannelLoaded) {{
+                self.jchannelLoaded = new Promise((resolve, reject) => {{
                     const script = document.createElement('script');
 
                     script.addEventListener('load', () => {{
@@ -43,8 +41,10 @@ class AbstractFrontend(ABC):
                     script.src = '{self.url}';
 
                     document.head.appendChild(script);
-                }}
-            }}).then(() => {{
+                }});
+            }}
+
+            self.jchannelLoaded.then(() => {{
                 {code};
             }}).catch((event) => {{
                 console.error('Script error event', event);

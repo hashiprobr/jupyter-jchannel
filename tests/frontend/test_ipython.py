@@ -20,14 +20,18 @@ def test_instantiates_with_url(mocker):
 
 
 def test_runs_twice(mocker):
-    frontend = IPythonFrontend()
-
     def side_effect(element):
-        if element == frontend.output:
+        if hasattr(element, '_view_count'):
             element._view_count += 1
 
     display = mocker.patch('jchannel.frontend.ipython.display')
     display.side_effect = side_effect
 
+    frontend = IPythonFrontend()
+
     frontend.run("jchannel.start('http://localhost:8889/socket', 4194304)")
     frontend.run("jchannel.stop('http://localhost:8889/socket')")
+
+    frontend.output._view_count -= 1
+
+    assert frontend.hidden is True
