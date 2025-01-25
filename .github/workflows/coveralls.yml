@@ -30,4 +30,4 @@ jobs:
       run: poetry run tests --coverage
 
     - name: Coveralls GitHub Action
-      uses: coverallsapp/github-action@v2.3.4
+      uses: coverallsapp/github-action@v2.3.5
