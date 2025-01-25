@@ -38,7 +38,7 @@ class IPythonFrontend(AbstractFrontend):
             display(self.output)
 
         with self.output:
-            # NOTE: Using IPython.display.JavaScript
+            # NOTE: Using IPython.display.Javascript
             # would be more elegant, but does not seem
             # to be working in Visual Studio Code.
             script = HTML(f'<script>{code}</script>')
