@@ -444,12 +444,15 @@ class Server(AbstractServer):
         if self._connection is None:
             socket = None
         else:
-            self.start_client()
+            if self._connection.done():
+                socket = self._connection.result()
+            else:
+                self.start_client()
 
-            try:
-                socket = await asyncio.wait_for(asyncio.shield(self._connection), timeout)
-            except asyncio.TimeoutError:
-                raise StateError('Server not connected') from None
+                try:
+                    socket = await asyncio.wait_for(asyncio.shield(self._connection), timeout)
+                except asyncio.TimeoutError:
+                    raise StateError('Server not connected') from None
 
         if socket is None:
             raise StateError('Server not running')
