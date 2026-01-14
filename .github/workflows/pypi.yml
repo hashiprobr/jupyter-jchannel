@@ -5,28 +5,28 @@ on:
     types:
       - published
 
+permissions:
+  id-token: write
+
 jobs:
   publish:
     name: Publish
     runs-on: ubuntu-latest
     steps:
 
-    - name: Setup Python 3.11
-      uses: actions/setup-python@v5.6.0
+    - name: Setup Python
+      uses: actions/setup-python@v6.1.0
       with:
-        python-version: '3.11'
+        python-version: '3.12'
 
     - name: Setup Poetry
-      env:
-        PYPI_TOKEN: ${{ secrets.PYPI_TOKEN }}
       run: |
         pip install --upgrade pip
         pip install pipx
         pipx install poetry
-        poetry config pypi-token.pypi $PYPI_TOKEN
 
     - name: Checkout
-      uses: actions/checkout@v4.2.2
+      uses: actions/checkout@v6.0.1
 
     - name: Install
       run: poetry install
