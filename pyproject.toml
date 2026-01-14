@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "jupyter-jchannel"
-version = "0.3.8"
+version = "0.3.9"
 description = "Simple asynchronous RPC framework for Jupyter Notebooks. Facilitates calling JavaScript frontend code from Python kernel code and vice-versa."
 authors = [
     "Marcelo Hashimoto <marcelo.hashimoto@gmail.com>"
